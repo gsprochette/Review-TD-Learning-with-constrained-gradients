@@ -19,3 +19,6 @@ Chercher dans les ref sur Baird un environnement qui fait déconner TD.
 
 ### Références ?
 Baird : http://www.leemon.com/papers/1995b.pdf
+
+
+### Reproducibility Challenge Constraints
