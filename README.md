@@ -11,4 +11,4 @@ Defines the environments corresponding to different problems. Each environment c
 Defines the algorithms that learn to optimize the rewards on an environment. One main class `algo` defines basic methods and a method `episode` that iteratively calls `env.step` and relies on a method `update_parameters` to train. All other algorithms inherit from this main class and should redefine the method `update_parameters`.
 
 ##### main.py
-Mains file, chooses an environment and an algorithm and plots results.
+Main file : chooses an environment and an algorithm, trains and plots results.
