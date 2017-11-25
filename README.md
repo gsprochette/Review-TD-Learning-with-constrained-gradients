@@ -1,5 +1,7 @@
 # Review : TD Learning with Constrained Gradients
 
+This repository is a reviews of the submission <a href="https://openreview.net/pdf?id=Bk-ofQZRb">TD Learning with Constrained Gradients</a>.
+
 ### Quick test
 
 ### Code Structure
