@@ -9,12 +9,11 @@ class Algo:
     defined in this directory.
     """
 
-    def __init__(self, env, mu0):
+    def __init__(self, env, mu0=None):
         super(Algo, self).__init__()
 
         self.env = env  # environment
         self.mu0 = mu0  # initial distribution
-        self.parameters = None  # to be defined in class instances
 
         # initialize training informations
         self.nepisode = 0
@@ -49,3 +48,15 @@ class Algo:
         To be defined in class instances.
         """
         pass
+
+
+class TD0(Algo):
+    
+    def __init__(self, env, mu0, epsilon):
+        super(TD0, self).__init__(env, mu0)
+        self.epsilon = epsilon
+        self.statevalue = 
+
+    def policy(self, state):
+
+        
