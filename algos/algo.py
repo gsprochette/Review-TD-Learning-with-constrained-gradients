@@ -55,8 +55,11 @@ class TD0(Algo):
     def __init__(self, env, mu0, epsilon):
         super(TD0, self).__init__(env, mu0)
         self.epsilon = epsilon
-        self.statevalue = 
+        self.statevalue = self.env.nstate
 
     def policy(self, state):
+        pass
+
+
 
         
