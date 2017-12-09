@@ -12,7 +12,12 @@ class Env:
     the method `is_terminal`.
     """
 
-    def __init__(self):
+    def __init__(self, random_state=None):
+        if random_state is None:
+            random_state = np.random.randint(1, 312414)
+        self.localrandom = np.random.RandomState(random_state)
+        print("Initiated local randomness with seed {}".format(random_state))
+
         self.nstate = None  # n
         self.naction = None  # a
 
@@ -21,7 +26,7 @@ class Env:
 
     def reset(self, mu0=None):
         assert mu0 is None or len(mu0) == self.nstate
-        state = np.random.choice(self.nstate, p=mu0)
+        state = self.localrandom.choice(self.nstate, p=mu0)
         return state
 
     def available_actions(self, state):
@@ -33,7 +38,7 @@ class Env:
     def step(self, state, action):
         trans_proba = self.transition[state, action, :]
         assert np.sum(trans_proba) > 0
-        next_state = np.random.choice(self.nstate, p=trans_proba)
+        next_state = self.localrandom.choice(self.nstate, p=trans_proba)
         reward = self.reward[state, action]
         stop = self.is_terminal(next_state, action)
         
@@ -45,8 +50,8 @@ class Env:
 
 class GridWorld(Env):
 
-    def __init__(self, gridh, gridl, terminal_state):
-        super(GridWorld, self).__init__()
+    def __init__(self, gridh, gridl, terminal_state, random_state=None):
+        super(GridWorld, self).__init__(random_state)
         self.height = gridh
         self.length = gridl
         self.nstate = gridh * gridl
@@ -58,8 +63,6 @@ class GridWorld(Env):
         self.init_transition()
 
         self.init_reward()
-        
-
 
     def matrix2lin(self, coord1, coord2):
         return coord1 * self.length + coord2
@@ -71,6 +74,23 @@ class GridWorld(Env):
 
     def init_transition(self):0
 
+
+class Baird(Env):
+    def __init__(self, epsilon, random_state=None):
+        ''' Epsilon : probability of state six being terminal '''
+        super(Baird, self).__init__(random_state)
+        self.nstate = 6
+        self.naction = 1
+        self.epsilon = epsilon
+        self.reward = np.zeros((self.nstate, self.naction))
+
+        self.transition = np.zeros((self.nstate, self.naction, self.nstate))
+        self.transition[:, :, -1] = 1
+
+    def is_terminal(self, state, action=None):
+        return self.localrandom.rand(1) < self.epsilon
+
+
 if __name__ == "__main__":
     grid = GridWorld(10, 10, [0, 4])
     s = grid.reset()
@@ -79,23 +99,7 @@ if __name__ == "__main__":
     for i in range(1000):
         if stop:
             break
-        action = np.random.choice(grid.available_actions(s))
+        action = grid.localrandom.choice(grid.available_actions(s))
         new_state, reward, stop = grid.step(s, action)
         print(grid.actions[action], grid.lin2matrix(new_state), reward)
         s = new_state
-    
-class Baird(Env):
-    
-    def __init__(self, epsilon):
-        ''' Epsilon : probability of state six being terminal '''
-        super(Baird, self).__init__()
-        self.nstate = 6
-        self.naction = 1
-        self.epsilon = epsilon
-        self.reward = np.zeros((self.nstate, self.naction))
-        
-        self.transition = np.zeros((self.nstate, self.naction, self.nstate))
-        self.transition[:, :, -1] = 1
-        
-    def is_terminal(state, _=None):
-        return np.random.rand(1) < self.epsilon

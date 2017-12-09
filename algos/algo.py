@@ -1,3 +1,4 @@
+import numpy as np
 
 """Defines the class `Algo` : all algorithm learning at each step
 should inherit from `Algo`.
@@ -51,15 +52,25 @@ class Algo:
 
 
 class TD0(Algo):
-    
-    def __init__(self, env, mu0, epsilon):
+    """Temporal Difference algorithm TD0"""
+
+    def __init__(self, env, mu0, epsilon, policy):
         super(TD0, self).__init__(env, mu0)
         self.epsilon = epsilon
-        self.statevalue = self.env.nstate
+        self.policy_fun = policy
+
+        self.value_function = np.zeros(self.env.nstate)
+        self.lr = None  # learning rate
 
     def policy(self, state):
-        pass
+        kwargs = {
+            "env": self.env, "state": state,
+            "V": self.value_function, "epsilon": self.epsilon
+            }
+        return self.policy_fun(**kwargs)
 
+    def update_parameters(self, state, new_state, reward):
+        d_tn = reward + self.value_function(new_state) \
+            - self.value_function(state)
 
-
-        
+        self.value_function[state] += self.lr * d_tn
