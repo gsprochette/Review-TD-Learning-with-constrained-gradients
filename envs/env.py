@@ -4,9 +4,9 @@ import numbers
 from tkinter import Tk
 import tkinter.font as tkfont
 import copy
+from abc import ABC, abstractmethod
 
-
-class Env:
+class Env(ABC):
     """Abstract environment class. All discrete environment should inherit from
     this class and define `nstate`, `naction`, `reward`, `transition` and
     the method `is_terminal`.
@@ -39,6 +39,7 @@ class Env:
 
         return next_state, reward, stop
 
+    @abstractmethod
     def is_terminal(self, state, action):
         pass
 
@@ -58,7 +59,6 @@ class GridWorld(Env):
         self.init_transition()
 
         self.init_reward()
-
 
 
     def matrix2lin(self, coord1, coord2):
@@ -98,14 +98,12 @@ class GridWorld(Env):
                     and y1 >= 0 and y1 < self.length:
                     j = self.matrix2lin(x1, y1)
                     self.reward[j, (a + 2) % 4] = 1 # Inverse action
-        return
-
 
     def is_terminal(self, state, _):
         return state == self.terminal_state
 
-class Baird(Env):
 
+class Baird(Env):
     def __init__(self, epsilon):
         ''' Epsilon : probability of state six being terminal '''
         super(Baird, self).__init__()
@@ -117,7 +115,7 @@ class Baird(Env):
         self.transition = np.zeros((self.nstate, self.naction, self.nstate))
         self.transition[:, :, -1] = 1
 
-    def is_terminal(state, _=None):
+    def is_terminal(self, state, _=None):
         return np.random.rand(1) < self.epsilon
 
 
@@ -136,16 +134,13 @@ if __name__ == "__main__":
             print(grid.actions[action], grid.lin2matrix(new_state), reward)
             s = new_state
     elif test == 'Baird':
-       baird = Baird(0.05)
-       print(baird.transition)
-       s = baird.reset()
-       print(s)
-       stop = False
-       for i in range(1000):
-           if stop:
-               break
-           print(baird.available_actions(s))
-           action = np.random.choice(baird.available_actions(s))
-           new_state, reward, stop = grid.step(s, action)
-           print(new_state)
-           s = new_state
+        baird = Baird(0.5)
+        s = baird.reset()
+        print(s)
+        stop = False
+        for i in range(1000):
+            if stop:
+                break
+            action = np.random.choice(baird.available_actions(s))
+            new_state, reward, stop = baird.step(s, action)
+            s = new_state
