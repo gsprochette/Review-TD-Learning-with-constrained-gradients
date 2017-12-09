@@ -8,7 +8,7 @@ import copy
 
 class Env:
     """Abstract environment class. All discrete environment should inherit from
-    this class and define `nstate`, `naction`, `reward`, `transition` and 
+    this class and define `nstate`, `naction`, `reward`, `transition` and
     the method `is_terminal`.
     """
 
@@ -36,7 +36,7 @@ class Env:
         next_state = np.random.choice(self.nstate, p=trans_proba)
         reward = self.reward[state, action]
         stop = self.is_terminal(next_state, action)
-        
+
         return next_state, reward, stop
 
     def is_terminal(self, state, action):
@@ -58,7 +58,7 @@ class GridWorld(Env):
         self.init_transition()
 
         self.init_reward()
-        
+
 
 
     def matrix2lin(self, coord1, coord2):
@@ -86,10 +86,10 @@ class GridWorld(Env):
     def init_reward(self):
         ''' Start from the terminal state, apply all possible actions,
             add a reward to the inverse of each action '''
-        
+
         self.reward = np.zeros((self.nstate, self.naction))
         x0, y0 = self.lin2matrix(self.terminal_state)
-        
+
         deltax = [-1, 0, 1, 0]
         deltay = [0, -1, 0, 1]
         for a in range(self.naction):
@@ -98,23 +98,54 @@ class GridWorld(Env):
                     and y1 >= 0 and y1 < self.length:
                     j = self.matrix2lin(x1, y1)
                     self.reward[j, (a + 2) % 4] = 1 # Inverse action
-        return 
-        
+        return
+
 
     def is_terminal(self, state, _):
         return state == self.terminal_state
 
+class Baird(Env):
+
+    def __init__(self, epsilon):
+        ''' Epsilon : probability of state six being terminal '''
+        super(Baird, self).__init__()
+        self.nstate = 6
+        self.naction = 1
+        self.epsilon = epsilon
+        self.reward = np.zeros((self.nstate, self.naction))
+
+        self.transition = np.zeros((self.nstate, self.naction, self.nstate))
+        self.transition[:, :, -1] = 1
+
+    def is_terminal(state, _=None):
+        return np.random.rand(1) < self.epsilon
+
 
 if __name__ == "__main__":
-    grid = GridWorld(10, 10, [0, 4])
-    s = grid.reset()
-    print(grid.lin2matrix(s))
-    stop = False
-    for i in range(1000):
-        if stop:
-            break
-        action = np.random.choice(grid.available_actions(s))
-        new_state, reward, stop = grid.step(s, action)
-        print(grid.actions[action], grid.lin2matrix(new_state), reward)
-        s = new_state
-        
+    test = 'Baird'
+    if test == 'Gridworld':
+        grid = GridWorld(10, 10, [0, 4])
+        s = grid.reset()
+        print(grid.lin2matrix(s))
+        stop = False
+        for i in range(1000):
+            if stop:
+                break
+            action = np.random.choice(grid.available_actions(s))
+            new_state, reward, stop = grid.step(s, action)
+            print(grid.actions[action], grid.lin2matrix(new_state), reward)
+            s = new_state
+    elif test == 'Baird':
+       baird = Baird(0.05)
+       print(baird.transition)
+       s = baird.reset()
+       print(s)
+       stop = False
+       for i in range(1000):
+           if stop:
+               break
+           print(baird.available_actions(s))
+           action = np.random.choice(baird.available_actions(s))
+           new_state, reward, stop = grid.step(s, action)
+           print(new_state)
+           s = new_state
