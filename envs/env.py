@@ -69,7 +69,41 @@ class GridWorld(Env):
         coord2 = coord % self.length
         return coord1, coord2
 
-    def init_transition(self):0
+    def init_transition(self):
+        self.transition = np.zeros((self.nstate, self.naction, self.nstate))
+        deltax = [-1, 0, 1, 0]
+        deltay = [0, -1, 0, 1]
+
+        for i in range(self.nstate):
+            x0, y0 = self.lin2matrix(i)
+            for a in range(self.naction):
+                x1, y1 = x0 + deltax[a], y0 + deltay[a]
+                if x1 >= 0 and x1 < self.height \
+                    and y1 >= 0 and y1 < self.length:
+                    j = self.matrix2lin(x1, y1)
+                    self.transition[i, a, j] = 1
+
+    def init_reward(self):
+        ''' Start from the terminal state, apply all possible actions,
+            add a reward to the inverse of each action '''
+        
+        self.reward = np.zeros((self.nstate, self.naction))
+        x0, y0 = self.lin2matrix(self.terminal_state)
+        
+        deltax = [-1, 0, 1, 0]
+        deltay = [0, -1, 0, 1]
+        for a in range(self.naction):
+                x1, y1 = x0 + deltax[a], y0 + deltay[a]
+                if x1 >= 0 and x1 < self.height \
+                    and y1 >= 0 and y1 < self.length:
+                    j = self.matrix2lin(x1, y1)
+                    self.reward[j, (a + 2) % 4] = 1 # Inverse action
+        return 
+        
+
+    def is_terminal(self, state, _):
+        return state == self.terminal_state
+
 
 if __name__ == "__main__":
     grid = GridWorld(10, 10, [0, 4])
@@ -83,19 +117,4 @@ if __name__ == "__main__":
         new_state, reward, stop = grid.step(s, action)
         print(grid.actions[action], grid.lin2matrix(new_state), reward)
         s = new_state
-    
-class Baird(Env):
-    
-    def __init__(self, epsilon):
-        ''' Epsilon : probability of state six being terminal '''
-        super(Baird, self).__init__()
-        self.nstate = 6
-        self.naction = 1
-        self.epsilon = epsilon
-        self.reward = np.zeros((self.nstate, self.naction))
         
-        self.transition = np.zeros((self.nstate, self.naction, self.nstate))
-        self.transition[:, :, -1] = 1
-        
-    def is_terminal(state, _=None):
-        return np.random.rand(1) < self.epsilon
