@@ -5,6 +5,11 @@ should inherit from `Algo`.
 from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import torch.nn.init as I
+import torch.optim as optim
+from torch.autograd import Variable
+from torch.nn import Parameter
 
 
 class Algo(ABC):
@@ -24,7 +29,7 @@ class Algo(ABC):
         self.nepisode = 0
         self.rewards = []
 
-    def episode(self):
+    def episode(self):  # Should be in main.py
         """Trains on one full episode"""
         state = self.env.reset(self.mu0)
         reward_acc = []
@@ -39,7 +44,7 @@ class Algo(ABC):
         self.rewards.append(reward_acc)
 
     @abstractmethod
-    def policy(self, state):
+    def policy(self, state):  # Could be outside the class
         """Decides what action to take at state `state`.
         To be defined in class instances.
         """
@@ -55,48 +60,56 @@ class Algo(ABC):
         """
         pass
 
-    @abstractmethod
-    def constraint_dir(self, state, new_state, reward):
-        """Computes the projection vector $\hat g_v(s_{t+1})$ as
-        defined in https://openreview.net/pdf?id=Bk-ofQZRb
-        """
-        pass
+    def update(self, state, new_state, reward):
+        """Computes gradient step and projects it if constrained. Returns current loss and parameter update"""
 
-    def update_parameters(self, state, new_state, reward):
-        """Computes gradient step and projects it if constrained"""
+        self.model.zero_grad()
+        err = self.loss(state, new_state, reward)
+        err.backward()
+        g_tds = [param.grad for param in self.model.parameters()]
 
-        g_td = None
-        if self.constr:
-            g_v = self.constraint_dir(state, new_state, reward)
-            pg_td = torch.dot(g_td, g_v) * g_v
-            g_td = g_td - pg_td
+        if not self.constr:
+            return g_tds
 
-        # update parameters
-        return
+        g_vs = self.model.g_v(new_state)
+        g_updates = [
+            g_td - torch.dot(g_td, g_v) * g_v
+            for g_td, g_v in zip(g_tds, g_vs)
+        ]
+        return g_updates
 
 
 class TD0(Algo):
-
+    """Temporal Differences TD0 algorithm"""
     def __init__(self, env, mu0, epsilon):
-        super(TD0, self).__init__(env, mu0)
-        self.epsilon = epsilon
-        # self.statevalue =
+        super(TD0, self).__init__()
 
     def policy(self, state):
+        pass
+
+    def loss(self, state, new_state, reward):
         pass
 
 
 class QLearning(Algo):
+    """Q-Learning algorithm"""
     def __init__(self):
-        pass
+        super(QLearning, self).__init__()
 
     def policy(self, state):
+        pass
+
+    def loss(self, state, new_state, reward):
         pass
 
 
 class ResidualGradient(Algo):
+    """Residual Gradient algorithm"""
     def __init__(self):
-        pass
+        super(ResidualGradient, self).__init__()
 
     def policy(self, state):
+        pass
+
+    def loss(self, state, new_state, reward):
         pass
