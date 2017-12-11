@@ -36,17 +36,16 @@ for i in range(n_experiments):
     for j, a in enumerate(algorithms):
         theta = np.copy(theta_init)
         stop = False
-        s = envi.reset()
+        envi.reset()
         for k in range(n_iter):
             if stop:
                 stop = False
-                s = envi.reset()
-
+                envi.reset()
             hist[i, j, k] = LA.norm(theta)
-            action = alg1.policy(s)
-            new_s, r, stop = envi.step(s, action)
+            s = envi.state
+            action = a.policy()
+            new_s, r, stop = envi.step(action)
             theta = a.update_parameters(s, new_s, r, theta, alpha0)
-            s = new_s
 average = np.mean(hist, axis=0)
 #print(theta)
 # Display the results

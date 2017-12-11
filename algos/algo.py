@@ -26,19 +26,19 @@ class Algo(ABC):
 
     def episode(self):
         """Trains on one full episode"""
-        state = self.env.reset(self.mu0)
+        self.env.reset(self.mu0)
         reward_acc = []
         stop = False
         while not stop:
-            action = self.policy(state)
-            new_state, reward, stop = self.env.step(state, action)
+            action = self.policy(self.env.state)
+            state = self.env.state
+            new_state, reward, stop = self.env.step(action)
             self.update_parameters(state, new_state, reward)
             reward_acc.append(reward)
-            state = new_state
         self.nepisode += 1
         self.rewards.append(reward_acc)
 
-    def policy(self, state):
+    def policy(self):
         """Decides what action to take at state `state`.
         To be defined in class instances.
         """

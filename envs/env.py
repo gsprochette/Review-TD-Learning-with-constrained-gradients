@@ -5,6 +5,7 @@ from tkinter import Tk
 import tkinter.font as tkfont
 import copy
 from abc import ABC, abstractmethod
+import gym
 
 class Env(ABC):
     """Abstract environment class. All discrete environment should inherit from
@@ -18,28 +19,31 @@ class Env(ABC):
 
         self.reward = None  # n*a
         self.transition = None  # n*a*n
+        self.state = None
 
     def reset(self, mu0=None):
         assert mu0 is None or len(mu0) == self.nstate
-        state = np.random.choice(self.nstate, p=mu0)
-        return state
+        self.state = np.random.choice(self.nstate, p=mu0)
 
-    def available_actions(self, state):
+    def available_actions(self):
         ''' Returns the indices of all available actions from state `state` '''
-        all_actions = self.transition[state, :, :]
+        all_actions = self.transition[self.state, :, :]
         is_available = np.sum(all_actions, 1)
         return np.arange(self.naction)[is_available > 0]
 
-    def step(self, state, action):
-        trans_proba = self.transition[state, action, :]
+    def step(self, action):
+        '''Warning: changes the internal value of state. If needed, this value
+        should be stored before step is taken.'''
+        if self.state is None:
+            raise ValueError('The state should be initialized with env.step')
+        trans_proba = self.transition[self.state, action, :]
         assert np.sum(trans_proba) > 0
         next_state = np.random.choice(self.nstate, p=trans_proba)
-        reward = self.reward[state, action]
+        reward = self.reward[self.state, action]
         stop = self.is_terminal(next_state, action)
-
+        self.state = next_state
         return next_state, reward, stop
 
-    @abstractmethod
     def is_terminal(self, state, action):
         pass
 
@@ -59,7 +63,6 @@ class GridWorld(Env):
         self.init_transition()
 
         self.init_reward()
-
 
     def matrix2lin(self, coord1, coord2):
         return coord1 * self.length + coord2
@@ -99,7 +102,7 @@ class GridWorld(Env):
                     j = self.matrix2lin(x1, y1)
                     self.reward[j, (a + 2) % 4] = 1  # Inverse action
 
-    def is_terminal(self, state, _):
+    def is_terminal(self, state, _=None):
         return state == self.terminal_state
 
 
@@ -123,28 +126,51 @@ class Baird(Env):
         return np.random.rand(1) < self.epsilon
 
 
+class CartPole(Env):
+    def __init__(self):
+        ''' This class is an embedding of the CartPole-v0 environment
+        from gym library.'''
+        self.nstate = -1  # n
+        self.naction = 2  # a: +1 or -1
+
+        self.gym_env = gym.make('CartPole-v0')
+
+    def reset(self, _=None):
+        return self.gym_env.reset()
+
+    def available_actions(self, state):
+        ''' Returns the indices of all available actions from state `state`.
+        '''
+        return [0, 1]
+
+    def step(self, action):
+        return self.gym_env.step(action)
+
+    def is_terminal(self, state, action):
+        pass
+
+
 if __name__ == "__main__":
-    test = 'Baird'
-    if test == 'Gridworld':
+    test = 'GridWorld'
+    if test == 'GridWorld':
         grid = GridWorld(10, 10, [0, 4])
-        s = grid.reset()
-        print(grid.lin2matrix(s))
+        grid.reset()
+        print(grid.lin2matrix(grid.state))
         stop = False
         for i in range(1000):
             if stop:
                 break
-            action = np.random.choice(grid.available_actions(s))
-            new_state, reward, stop = grid.step(s, action)
+            action = np.random.choice(grid.available_actions())
+            new_state, reward, stop = grid.step(action)
             print(grid.actions[action], grid.lin2matrix(new_state), reward)
-            s = new_state
     elif test == 'Baird':
         baird = Baird(0.5)
-        s = baird.reset()
-        print(s)
+        baird.reset()
+        print(baird.state)
         stop = False
         for i in range(1000):
             if stop:
                 break
-            action = np.random.choice(baird.available_actions(s))
-            new_state, reward, stop = baird.step(s, action)
-            s = new_state
+            action = np.random.choice(baird.available_actions())
+            new_state, reward, stop = baird.step(action)
+            print(baird.state)
