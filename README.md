@@ -4,6 +4,9 @@ This repository is a reviews of the submission <a href="https://openreview.net/p
 
 ### Quick test
 
+To install the gym package:
+pip install --user gym
+
 ### Code Structure
 
 ##### envs/

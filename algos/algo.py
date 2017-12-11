@@ -3,6 +3,7 @@
 should inherit from `Algo`.
 """
 import numpy as np
+import numpy.random as npr
 import numpy.linalg as LA
 from abc import ABC, abstractmethod
 from envs.env import Baird
@@ -25,19 +26,19 @@ class Algo(ABC):
 
     def episode(self):
         """Trains on one full episode"""
-        state = self.env.reset(self.mu0)
+        self.env.reset(self.mu0)
         reward_acc = []
         stop = False
         while not stop:
-            action = self.policy(state)
-            new_state, reward, stop = self.env.step(state, action)
+            action = self.policy(self.env.state)
+            state = self.env.state
+            new_state, reward, stop = self.env.step(action)
             self.update_parameters(state, new_state, reward)
             reward_acc.append(reward)
-            state = new_state
         self.nepisode += 1
         self.rewards.append(reward_acc)
 
-    def policy(self, state):
+    def policy(self):
         """Decides what action to take at state `state`.
         To be defined in class instances.
         """
@@ -77,13 +78,18 @@ class QLearning(Algo):
 
 
 class ResidualGradient(Algo):
+    def __init__(self, env, mod, mu0=None, phi=0.4):
+        super().__init__(env, mod, mu0)
+        self.phi = phi
+
     def update_parameters(self, s, new_s, r, theta, alpha):
         ''' theta (arr): set of parameters to estimate the value function
             alpha (double): learning rate.
         '''
-        estimate = r + self.env.gamma * self.mod.v(new_s, theta)
-        delta = self.mod.v(s, theta) - estimate
-        grad = self.mod.grad_v(s) - self.env.gamma * self.mod.grad_v(new_s)
+        model = self.mod
+        g = self.env.gamma
+        delta = r + g * model.v(new_s, theta) - model.v(s, theta)
+        grad = self.phi * g * model.grad_v(new_s) - model.grad_v(s)
         theta -= 2 * alpha * delta * grad
         return theta
 
@@ -134,11 +140,12 @@ class GTD2(Algo):
         if beta is None:
             beta = alpha
         g = self.env.gamma
-        mod = self.mod
-        delta = r + g * mod.v(new_s, theta) - mod.v(s, theta)
-        phi_s = self.mod.grad_v(s)
-        phi_snew = self.mod.grad_v(new_s)
+        model = self.mod
+        delta = r + g * model.v(new_s, theta) - model.v(s, theta)
+
+        phi_s, phi_snew = model.grad_v(s), model.grad_v(new_s)
         grad = phi_s - self.env.gamma * phi_snew
-        theta += alpha * phi_s.T @ self.w * grad
+
+        theta += alpha * (phi_s.T @ self.w) * grad
         self.w += beta * (delta - phi_s.T @ self.w) * phi_s
         return theta
