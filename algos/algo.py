@@ -37,12 +37,15 @@ class Algo(ABC):
         self.nepisode += 1
         self.rewards.append(reward_acc)
 
-    @abstractmethod
     def policy(self, state):
         """Decides what action to take at state `state`.
         To be defined in class instances.
         """
-        pass
+        if isinstance(self.env, Baird):
+            return 0
+        else:
+            raise NotImplementedError('Residual gradient not implemented',
+                                      'for this environment')
 
     @abstractmethod
     def update_parameters(self, state, new_state, reward):
@@ -58,11 +61,6 @@ class TD0(Algo):
         super(TD0, self).__init__(env, mod, mu0)
         self.epsilon = epsilon
 
-    def policy(self, state):
-        if isinstance(self.env, Baird):
-            return 0
-        pass
-
     def update_parameters(self, s, new_s, r, theta, alpha):
         ''' theta (arr): set of parameters to estimate the value function
             alpha (double): learning rate.
@@ -77,23 +75,8 @@ class QLearning(Algo):
     def __init__(self, env, mu0=None):
         super().__init(env, mu0)
 
-    def policy(self, state):
-        if isinstance(self.env, Baird):
-            return 0
-        pass
-
 
 class ResidualGradient(Algo):
-    def __init__(self, env, mod, mu0=None, epsilon=None):
-        super().__init__(env, mod, mu0)
-
-    def policy(self, state):
-        if isinstance(self.env, Baird):
-            return 0
-        else:
-            raise NotImplementedError('Residual gradient not implemented',
-                                      'for this environment')
-
     def update_parameters(self, s, new_s, r, theta, alpha):
         ''' theta (arr): set of parameters to estimate the value function
             alpha (double): learning rate.
@@ -106,16 +89,6 @@ class ResidualGradient(Algo):
 
 
 class ConstrainedGradient(Algo):
-    def __init__(self, env, mod, mu0=None, epsilon=None):
-        super().__init__(env, mod, mu0)
-
-    def policy(self, state):
-        if isinstance(self.env, Baird):
-            return 0
-        else:
-            raise NotImplementedError('Residual gradient not implemented',
-                                      'for this environment')
-
     def update_parameters(self, s, new_s, r, theta, alpha):
         ''' theta (arr): set of parameters to estimate the value function
             alpha (double): learning rate.
@@ -128,4 +101,44 @@ class ConstrainedGradient(Algo):
         proj = np.dot(grad, boot_normalized) * boot_normalized
         constrained_grad = grad - proj
         theta -= 2 * alpha * delta * constrained_grad
+        return theta
+
+
+class ConstrainedResidualGradient(Algo):
+    def update_parameters(self, s, new_s, r, theta, alpha):
+        ''' theta (arr): set of parameters to estimate the value function
+            alpha (double): learning rate.
+        '''
+        estimate = r + self.env.gamma * self.mod.v(new_s, theta)
+        delta = self.mod.v(s, theta) - estimate
+        grad = self.mod.grad_v(s) - self.env.gamma * self.mod.grad_v(new_s)
+        bootstrap_grad = self.mod.grad_v(new_s)
+        boot_normalized = bootstrap_grad / LA.norm(bootstrap_grad)
+        proj = np.dot(grad, boot_normalized) * boot_normalized
+        constrained_grad = grad - proj
+        theta -= 2 * alpha * delta * constrained_grad
+        return theta
+
+
+class GTD2(Algo):
+    def __init__(self, env, mod, mu0=None):
+        ''' Warning : this model is only valid for a linear model.
+        beta (double): learning rate for w.'''
+        super().__init__(env, mod, mu0)
+        self.w = np.zeros(mod.n_params)
+
+    def update_parameters(self, s, new_s, r, theta, alpha, beta=None):
+        ''' theta (arr): set of parameters to estimate the value function
+            alpha (double): learning rate.
+        '''
+        if beta is None:
+            beta = alpha
+        g = self.env.gamma
+        mod = self.mod
+        delta = r + g * mod.v(new_s, theta) - mod.v(s, theta)
+        phi_s = self.mod.grad_v(s)
+        phi_snew = self.mod.grad_v(new_s)
+        grad = phi_s - self.env.gamma * phi_snew
+        theta += alpha * phi_s.T @ self.w * grad
+        self.w += beta * (delta - phi_s.T @ self.w) * phi_s
         return theta
