@@ -3,46 +3,54 @@
 
 import numpy as np
 import numpy.random as npr
+import numpy.linalg as LA
 import envs.env as env
+import algos.algo as algo
+import models.model as model
 import matplotlib.pyplot as plt
 
 # npr.seed(0)
 
-# Baird
-baird = env.Baird(epsilon=0.8)
-theta = 1e-2 * npr.randn(7)
 
-M = np.zeros((6, 7))
-# Each line i : the parameters associated to state i
-M[:, 0] = 1
-for i in range(5):
-    M[i, i + 1] = 2
-M[5, 0] = 2
-M[5, 6] = 1
+# Define the environment, model and algorithm
+envi = env.Baird(epsilon=0.95)
+mod = model.LinearBaird()
+alg1 = algo.TD0(envi, mod)
+alg2 = algo.ResidualGradient(envi, mod)
+alg3 = algo.ConstrainedGradient(envi, mod)
 
+# Parameters
+alpha = 1e-3
+n_iter = 10000
+n_experiments = 1
 
-def V(theta):
-    return M @ theta
+algorithmes = [alg1, alg2, alg3]
+hist = np.zeros((n_experiments, len(algorithmes), n_iter))
 
-# Q-learning : delta = V(s) - V_s(new)
-alpha = 1e-1
-n_iter = 100
-hist = np.zeros(n_iter)
-for i in range(n_iter):
-    s = baird.reset()
-    stop = False
-    for j in range(100):
-        action = np.random.choice(baird.available_actions(s))
-        new_state, reward, stop = baird.step(s, action)
-        theta += 2 * alpha * (M[s] @ theta - M[new_state] @ theta) * (M[s])
-        #print(theta)
-        #print((M[s] @ theta - M[new_state] @ theta))
-        s = new_state
-        if stop:
-            break
-    hist[i]  = np.sqrt(np.dot(theta, theta))
+for i in range(n_experiments):
+    for j, a in enumerate(algorithmes):
+        theta = 1e-2 * npr.randn(7)
+        for k in range(n_iter):
+            s = envi.reset()
+            action = alg1.policy(s)
+            new_s, r, stop = envi.step(s, action)
+            theta = a.update_parameters(s, new_s, r, theta, alpha)
 
+            hist[i, j, k] = LA.norm(theta)
+
+average = np.mean(hist, axis=0)
+hist0 = average[0]
+hist1 = average[1]
+hist2 = average[2]
+
+# Display the results
 plt.clf()
-plt.plot(hist[50:])
-print(theta)
-print(np.dot(theta, theta))
+plt.plot(hist0, label='TD0')
+plt.plot(hist1, label='Residual gradients')
+plt.plot(hist2, label='Constrained gradients')
+plt.xlabel("Iteration")
+plt.ylabel("l2 norm of theta")
+plt.legend()
+plt.title("Baird's counterexample, averaged on {} experiments".format(
+        n_experiments))
+plt.show()
