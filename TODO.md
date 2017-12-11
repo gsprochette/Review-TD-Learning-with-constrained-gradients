@@ -41,3 +41,6 @@ Baird : http://www.leemon.com/papers/1995b.pdf
 
 
 ### Reproducibility Challenge Constraints
+Participants should produce a Reproducibility report, describing the target questions, experimental methodology, implementation details, analysis and discussion of findings, conclusions on reproducibility of the paper. This report should be posted as a contributed review on OpenReview.
+The result of the reproducibility study should NOT be a simple Pass / Fail outcome. The goal should be to identify which parts of the contribution can be reproduced, and at what cost in terms of resources (computation, time, people, development effort, communication with the authors).
+- Make confidence intervals
