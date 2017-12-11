@@ -97,20 +97,24 @@ class GridWorld(Env):
                 if x1 >= 0 and x1 < self.height \
                     and y1 >= 0 and y1 < self.length:
                     j = self.matrix2lin(x1, y1)
-                    self.reward[j, (a + 2) % 4] = 1 # Inverse action
+                    self.reward[j, (a + 2) % 4] = 1  # Inverse action
 
     def is_terminal(self, state, _):
         return state == self.terminal_state
 
 
 class Baird(Env):
-    def __init__(self, epsilon):
-        ''' Epsilon : probability of state six being terminal '''
+    def __init__(self, epsilon=0.95, gamma=0.9999):
+        ''' Epsilon : probability of state six being terminal
+        Remark : we could stop the episode after only one iteration, since
+        with Baird environment there is no update of the parameters
+        when the state does not change.'''
         super(Baird, self).__init__()
         self.nstate = 6
         self.naction = 1
         self.epsilon = epsilon
         self.reward = np.zeros((self.nstate, self.naction))
+        self.gamma = gamma
 
         self.transition = np.zeros((self.nstate, self.naction, self.nstate))
         self.transition[:, :, -1] = 1
