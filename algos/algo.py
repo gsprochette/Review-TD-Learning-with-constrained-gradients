@@ -30,10 +30,10 @@ class Algo(ABC):
         reward_acc = []
         stop = False
         while not stop:
-            action = self.policy(self.env.state)
             state = self.env.state
-            new_state, reward, stop = self.env.step(action)
-            self.update_parameters(state, new_state, reward)
+            action = self.policy()
+            reward, stop = self.env.step(action)
+            self.update_parameters(state, self.env.state, reward)
             reward_acc.append(reward)
         self.nepisode += 1
         self.rewards.append(reward_acc)
@@ -45,8 +45,9 @@ class Algo(ABC):
         if isinstance(self.env, Baird):
             return 0
         else:
-            raise NotImplementedError('Residual gradient not implemented',
-                                      'for this environment')
+            raise NotImplementedError(
+                'Residual gradient not implemented for' \
+                + 'this environment')
 
     @abstractmethod
     def update_parameters(self, state, new_state, reward):

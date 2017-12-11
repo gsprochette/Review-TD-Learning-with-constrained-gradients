@@ -26,8 +26,7 @@ class VModel(nn.Module):
     @staticmethod
     def normalize(vect):
         """L2-normalization"""
-        norm = (vect ** 2).sum().sqrt()
-        return vect / norm
+        return vect / torch.norm(vect, p=2)
 
 
 class LinearBaird(VModel):
@@ -36,13 +35,12 @@ class LinearBaird(VModel):
         self.M = self.init_m()
 
         self.nparams = 7
-        theta = torch.Tensor(self.nparams)
-        I.uniform(theta)  # init randomly in [0,1]
+        theta = torch.rand(self.nparams)  # init randomly in [0,1]
 
         # self.theta = Variable(theta)
         self.register_parameter("theta", Parameter(theta))
 
-    def forward(self, state):
+    def forward(self, state, action=None):  # ignore action for Q methods
         return torch.dot(self.M[state, :], self.theta)
 
     @staticmethod

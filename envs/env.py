@@ -16,6 +16,7 @@ class Env(ABC):
     def __init__(self):
         self.nstate = None  # n
         self.naction = None  # a
+        self.gamma = 1.
 
         self.reward = None  # n*a
         self.transition = None  # n*a*n
@@ -42,7 +43,7 @@ class Env(ABC):
         reward = self.reward[self.state, action]
         stop = self.is_terminal(next_state, action)
         self.state = next_state
-        return next_state, reward, stop
+        return reward, stop
 
     def is_terminal(self, state, action):
         pass

@@ -29,22 +29,8 @@ class Algo(ABC):
         self.nepisode = 0
         self.rewards = []
 
-    def episode(self):  # Should be in main.py
-        """Trains on one full episode"""
-        state = self.env.reset(self.mu0)
-        reward_acc = []
-        stop = False
-        while not stop:
-            action = self.policy(state)
-            new_state, reward, stop = self.env.step(state, action)
-            self.update_parameters(state, new_state, reward)
-            reward_acc.append(reward)
-            state = new_state
-        self.nepisode += 1
-        self.rewards.append(reward_acc)
-
     @abstractmethod
-    def policy(self, state):  # Could be outside the class
+    def policy(self):  # Could be outside the class
         """Decides what action to take at state `state`.
         To be defined in class instances.
         """
@@ -53,38 +39,35 @@ class Algo(ABC):
     @abstractmethod
     def loss(self, state, new_state, reward):
         """Computes the loss corresponding to the algorithm
-        implemented, e.g. for Q-learning :
+        implemented, e.g. for epsilon-step Q-learning:
         $$
             L = \| q(s_t, a_t|\theta) - r_t - \gamma \max_a q(s_{t+1}, a|\theta) \|^2
         $$
         """
         pass
 
-    def update(self, state, new_state, reward):
+    def update(self, state, new_state, reward, optimizer):
         """Computes gradient step and projects it if constrained. Returns current loss and parameter update"""
 
         self.model.zero_grad()
         err = self.loss(state, new_state, reward)
         err.backward()
-        g_tds = [param.grad for param in self.model.parameters()]
 
-        if not self.constr:
-            return g_tds
-
-        g_vs = self.model.g_v(new_state)
-        g_updates = [
-            g_td - torch.dot(g_td, g_v) * g_v
-            for g_td, g_v in zip(g_tds, g_vs)
-        ]
-        return g_updates
+        if self.constr:
+            g_vs = self.model.g_v(new_state)
+            for param, g_v in zip(self.model.parameters(), g_vs):
+                param.grad -= torch.dot(param.grad, g_v) * g_v
+        optimizer.step()
 
 
 class TD0(Algo):
     """Temporal Differences TD0 algorithm"""
-    def __init__(self, env, mu0, epsilon):
-        super(TD0, self).__init__()
+    def __init__(self, env, model, mu0=None, constraint=False):
+        super(TD0, self).__init__(
+            env, model, mu0=None, constraint=constraint
+            )
 
-    def policy(self, state):
+    def policy(self):
         pass
 
     def loss(self, state, new_state, reward):
@@ -93,10 +76,8 @@ class TD0(Algo):
 
 class QLearning(Algo):
     """Q-Learning algorithm"""
-    def __init__(self):
-        super(QLearning, self).__init__()
 
-    def policy(self, state):
+    def policy(self):
         pass
 
     def loss(self, state, new_state, reward):
@@ -105,11 +86,30 @@ class QLearning(Algo):
 
 class ResidualGradient(Algo):
     """Residual Gradient algorithm"""
-    def __init__(self):
-        super(ResidualGradient, self).__init__()
 
-    def policy(self, state):
-        pass
+    def __init__(self, env, model, policy,
+                 mu0=None, constraint=False):
+        super(ResidualGradient, self).__init__(
+            env, model, mu0=None, constraint=constraint
+            )
+        self.pol = policy
+
+    def policy(self):
+        return self.pol(self.env.state)
 
     def loss(self, state, new_state, reward):
-        pass
+        q_next = self.model.forward(new_state)
+        q_best_a = self.max_value(q_next)
+        expected = self.env.gamma * q_best_a + reward
+        q_curr = self.model.forward(state)
+        td = q_curr - expected
+
+        return td ** 2
+
+    @staticmethod
+    def max_value(qval):
+        """V approximation through Q : $V(s) = \max_a Q(s, a)$"""
+
+        if qval.numel() == 1:  # value function
+            return qval
+        return torch.max(qval)
