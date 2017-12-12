@@ -34,12 +34,6 @@ def episode(algo, optimizer):  # Should be in main.py
     algo.rewards.append(reward_acc)
 
 
-def update_parameters(parameters, g_update, optimizer):
-    for param, grad in zip(parameters, g_update):
-        param.grad = grad
-    optimizer.step()
-
-
 if __name__ == "__main__":
     # seed randomness ?
 
@@ -47,32 +41,34 @@ if __name__ == "__main__":
     model = Model.LinearBaird
     policy = lambda _: 0  # Baird : only one action possible
 
-    RG = Algo.ResidualGradient(
-        env(), model(), policy, constraint=False)
-    RGc = Algo.ResidualGradient(
-        env(), model(), policy, constraint=True)
+    alpha0, T0 = 0.1, 1000
+    alpha = lambda episode: alpha0 / (1 + episode / T0)
+    RG = lambda theta0: Algo.ResidualGradient(
+        env(), model(theta0), policy, constraint=False)
+    RGc = lambda theta0: Algo.ResidualGradient(
+        env(), model(theta0), policy, constraint=True)
     algorithms = [RG, RGc]
 
-    alpha0, T0 = 0.1, 100
-    alpha = lambda episode: alpha0 / (1 + episode / T0)
-
-    optimizers = [optim.SGD(algo.model.parameters(), lr=1.)
-                  for algo in algorithms]
-    schedulers = [
-        optim.lr_scheduler.LambdaLR(opt, lr_lambda=alpha)
-        for opt in optimizers
-    ]
-
-    nexperiment = 1
-    nepisode = 100
+    nexperiment = 10
+    nepisode = 200
     hist = np.zeros((len(algorithms), nepisode))
     for iexp in range(nexperiment):
+        theta0 = np.random.rand(7)
+        algos = [algo(theta0) for algo in algorithms]
+
+        optimizers = [optim.SGD(algo.model.parameters(), lr=1.)
+                      for algo in algos]
+        schedulers = [
+            optim.lr_scheduler.LambdaLR(opt, lr_lambda=alpha)
+            for opt in optimizers
+            ]
+
         for iepisode in range(nepisode):
-            for i, algo in enumerate(algorithms):
-                episode(algo, schedulers[i])
+            for i, algo in enumerate(algos):
+                schedulers[i].step()  # update learning rate
+                episode(algo, optimizers[i])  # train for one episode
                 hist[i, iepisode] += torch.norm(algo.model.theta, p=2)
     hist /= nexperiment
-    print(hist)
 
     # plot results
     plt.clf()
@@ -85,6 +81,6 @@ if __name__ == "__main__":
     plt.legend()
     plt.title(
         "Baird's counterexample" \
-        + "" if nexperiment == 1 else \
-        ", averaged on {} experiments".format(nexperiment))
+        + ("" if nexperiment == 1 else \
+        ", averaged on {} experiments".format(nexperiment)))
     plt.show()

@@ -59,6 +59,14 @@ class Algo(ABC):
                 param.grad -= torch.dot(param.grad, g_v) * g_v
         optimizer.step()
 
+    @staticmethod
+    def max_value(qval):
+        """V approximation through Q : $V(s) = \max_a Q(s, a)$"""
+
+        if qval.numel() == 1:  # value function
+            return qval
+        return torch.max(qval)
+
 
 class TD0(Algo):
     """Temporal Differences TD0 algorithm"""
@@ -105,11 +113,3 @@ class ResidualGradient(Algo):
         td = q_curr - expected
 
         return td ** 2
-
-    @staticmethod
-    def max_value(qval):
-        """V approximation through Q : $V(s) = \max_a Q(s, a)$"""
-
-        if qval.numel() == 1:  # value function
-            return qval
-        return torch.max(qval)

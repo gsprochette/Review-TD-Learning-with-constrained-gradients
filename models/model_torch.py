@@ -30,14 +30,16 @@ class VModel(nn.Module):
 
 
 class LinearBaird(VModel):
-    def __init__(self):
+    def __init__(self, theta=None):
         super(LinearBaird, self).__init__()
         self.M = self.init_m()
 
         self.nparams = 7
-        theta = torch.rand(self.nparams)  # init randomly in [0,1]
-
-        # self.theta = Variable(theta)
+        if theta is None:
+            theta = torch.rand(self.nparams)  # init randomly in [0,1]
+        else:
+            theta = torch.Tensor(theta)
+            assert theta.numel() == self.nparams
         self.register_parameter("theta", Parameter(theta))
 
     def forward(self, state, action=None):  # ignore action for Q methods
