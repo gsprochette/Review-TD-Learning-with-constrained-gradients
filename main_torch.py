@@ -21,7 +21,7 @@ def episode(algo, optimizer):  # Should be in main.py
     while not stop:
         # take action
         action = algo.policy()
-        reward, stop = algo.env.step(action)
+        next_state, reward, stop = algo.env.step(action)
         old_state = state
         state = algo.env.state
 

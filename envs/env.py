@@ -43,7 +43,7 @@ class Env(ABC):
         reward = self.reward[self.state, action]
         stop = self.is_terminal(next_state, action)
         self.state = next_state
-        return reward, stop
+        return next_state, reward, stop
 
     def is_terminal(self, state, action):
         pass

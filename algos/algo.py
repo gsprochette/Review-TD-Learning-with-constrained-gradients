@@ -12,7 +12,6 @@ class Algo(ABC):
     """Defines the methods common to all training algorithm
     defined in this directory.
     """
-
     def __init__(self, env, mod, mu0=None):
         super(Algo, self).__init__()
 
@@ -87,6 +86,7 @@ class ResidualGradient(Algo):
         ''' theta (arr): set of parameters to estimate the value function
             alpha (double): learning rate.
         '''
+        self.phi = 1
         model = self.mod
         g = self.env.gamma
         delta = r + g * model.v(new_s, theta) - model.v(s, theta)

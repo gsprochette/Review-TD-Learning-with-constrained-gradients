@@ -34,5 +34,8 @@ class LinearBaird(Model):
     def v(self, state, theta):
         return self.M[state] @ theta
 
+    def all_v(self, theta):
+        return self.M @ theta
+
     def grad_v(self, state):
         return self.M[state]

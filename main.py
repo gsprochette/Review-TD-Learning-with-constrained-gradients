@@ -9,7 +9,7 @@ import algos.algo as algo
 import models.model as model
 import matplotlib.pyplot as plt
 
-# npr.seed(0)
+npr.seed(0)
 
 
 # Define the environment, model and algorithm
@@ -22,7 +22,7 @@ alg3 = algo.GTD2(envi, mod)
 alg4 = algo.ConstrainedResidualGradient(envi, mod)
 # Parameters
 alpha0 = 0.1
-n_iter = 2000
+n_iter = 20000
 n_experiments = 1
 
 algorithms = [alg0, alg1, alg2, alg3, alg4]
@@ -32,7 +32,11 @@ def alpha(alpha0, j, T0=100):
     return alpha0 / (1 + j / T0)
 
 for i in range(n_experiments):
-    theta_init = npr.randn(7)
+    # To initialize theta we follow Baird's 1995 recommendations;
+    # All weights are positive, and the value of the terminal state
+    # is much larger
+    theta_init = np.abs(npr.randn(7))
+    theta_init[-1] += 2
     for j, a in enumerate(algorithms):
         theta = np.copy(theta_init)
         stop = False
@@ -41,11 +45,12 @@ for i in range(n_experiments):
             if stop:
                 stop = False
                 envi.reset()
-            hist[i, j, k] = LA.norm(theta)
+            hist[i, j, k] = LA.norm(mod.all_v(theta))
             s = envi.state
             action = a.policy()
             new_s, r, stop = envi.step(action)
             theta = a.update_parameters(s, new_s, r, theta, alpha0)
+
 average = np.mean(hist, axis=0)
 #print(theta)
 # Display the results
