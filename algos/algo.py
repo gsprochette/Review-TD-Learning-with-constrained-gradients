@@ -8,17 +8,18 @@ import numpy.linalg as LA
 from abc import ABC, abstractmethod
 from envs.env import Baird
 
+
 class Algo(ABC):
-    """Defines the methods common to all training algorithm
-    defined in this directory.
-    """
-    def __init__(self, env, mod, mu0=None):
+    """ Defines the methods common to all training algorithm
+    defined in this directory. """
+    def __init__(self, env, mod, mu0=None, policy='softmax'):
         super(Algo, self).__init__()
 
         self.env = env  # environment
         self.mod = mod
         self.mu0 = mu0  # initial distribution
-
+        self.pol = policy
+        self.Q = None
         # initialize training informations
         self.nepisode = 0
         self.rewards = []
@@ -38,15 +39,17 @@ class Algo(ABC):
         self.rewards.append(reward_acc)
 
     def policy(self):
-        """Decides what action to take at state `state`.
-        To be defined in class instances.
-        """
+        """ Decides what action to take at state env.state. """
         if isinstance(self.env, Baird):
             return 0
+        elif self.pol == 'softmax':
+            assert self.Q is not None, 'Q was not initialized'
+            q_arr = self.Q[self.env.state]
+            probs = np.exp(q_arr) / np.sum(np.exp(q_arr))
+            return npr.choice(len(probs), size=1, p=probs)
         else:
-            raise NotImplementedError(
-                'Residual gradient not implemented for' \
-                + 'this environment')
+            return ValueError('Not implemented')
+
 
     @abstractmethod
     def update_parameters(self, state, new_state, reward):
@@ -57,14 +60,13 @@ class Algo(ABC):
 
 
 class TD0(Algo):
-
     def __init__(self, env, mod, mu0=None, epsilon=None):
         super(TD0, self).__init__(env, mod, mu0)
         self.epsilon = epsilon
 
     def update_parameters(self, s, new_s, r, theta, alpha):
         ''' theta (arr): set of parameters to estimate the value function
-            alpha (double): learning rate.
+            alpha (float): learning rate.
         '''
         estimate = r + self.env.gamma * self.mod.v(new_s, theta)
         delta = self.mod.v(s, theta) - estimate
@@ -76,6 +78,12 @@ class QLearning(Algo):
     def __init__(self, env, mu0=None):
         super().__init(env, mu0)
 
+    def update_parameters(self, s, new_s, r, theta, alpha):
+        ''' theta (arr): set of parameters to estimate the action value
+        function
+            alpha (float): learning rate.
+        '''
+        estimate = r + self.env.gamma(self.mod.q(self.env.state, ))
 
 class ResidualGradient(Algo):
     def __init__(self, env, mod, mu0=None, phi=0.4):

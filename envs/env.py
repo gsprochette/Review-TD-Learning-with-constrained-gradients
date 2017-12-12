@@ -21,9 +21,11 @@ class Env(ABC):
         self.reward = None  # n*a
         self.transition = None  # n*a*n
         self.state = None
+        self.stop = False
 
     def reset(self, mu0=None):
         assert mu0 is None or len(mu0) == self.nstate
+        self.stop = False
         self.state = np.random.choice(self.nstate, p=mu0)
 
     def available_actions(self):
@@ -43,6 +45,7 @@ class Env(ABC):
         reward = self.reward[self.state, action]
         stop = self.is_terminal(next_state, action)
         self.state = next_state
+        self.stop = stop
         return next_state, reward, stop
 
     def is_terminal(self, state, action):

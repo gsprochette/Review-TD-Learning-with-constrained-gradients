@@ -11,39 +11,33 @@ import matplotlib.pyplot as plt
 
 npr.seed(0)
 
-
 # Define the environment, model and algorithm
 envi = env.Baird(epsilon=0.8, gamma=0.95)
 mod = model.LinearBaird()
-alg0 = algo.TD0(envi, mod)
-alg1 = algo.ResidualGradient(envi, mod)
-alg2 = algo.ConstrainedGradient(envi, mod)
-alg3 = algo.GTD2(envi, mod)
-alg4 = algo.ConstrainedResidualGradient(envi, mod)
+algorithms = [algo.TD0(envi, mod),
+              algo.ResidualGradient(envi, mod),
+              algo.ConstrainedGradient(envi, mod),
+              algo.GTD2(envi, mod),
+              algo.ConstrainedResidualGradient(envi, mod)]
+
 # Parameters
 alpha0 = 0.1
 n_iter = 20000
 n_experiments = 1
 
-algorithms = [alg0, alg1, alg2, alg3, alg4]
 hist = np.zeros((n_experiments, len(algorithms), n_iter))
 
-def alpha(alpha0, j, T0=100):
-    return alpha0 / (1 + j / T0)
-
 for i in range(n_experiments):
-    # To initialize theta we follow Baird's 1995 recommendations;
+    # To initialize theta we follow Baird's 1995 recommendations:
     # All weights are positive, and the value of the terminal state
     # is much larger
     theta_init = np.abs(npr.randn(7))
     theta_init[-1] += 2
     for j, a in enumerate(algorithms):
         theta = np.copy(theta_init)
-        stop = False
         envi.reset()
         for k in range(n_iter):
-            if stop:
-                stop = False
+            if envi.stop:
                 envi.reset()
             hist[i, j, k] = LA.norm(mod.all_v(theta))
             s = envi.state
@@ -52,7 +46,6 @@ for i in range(n_experiments):
             theta = a.update_parameters(s, new_s, r, theta, alpha0)
 
 average = np.mean(hist, axis=0)
-#print(theta)
 # Display the results
 plt.clf()
 #plt.plot(average[0], label='TD0')
