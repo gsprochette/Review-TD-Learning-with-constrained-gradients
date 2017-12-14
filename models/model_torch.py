@@ -26,6 +26,10 @@ class VModel(nn.Module):
     corresponding constraint.
     """
 
+    def __init__(self):
+        super(VModel, self).__init__()
+        self.register_parameter("theta", None)
+
     def g_v(self, state):
         """Returns a list of unit vectors. Each vector is the normalized
         gradient of the value function in the parameter with same index in
@@ -35,12 +39,8 @@ class VModel(nn.Module):
         self.zero_grad()
         val = self.forward(state)  # compute value function
         val.backward()
-        return [self.normalize(param.grad) for param in self.parameters()]
-
-    @staticmethod
-    def normalize(vect):
-        """L2-normalization"""
-        return vect / torch.norm(vect, p=2)
+        return [param.grad / torch.norm(param.grad, p=2)
+                for param in self.parameters()]
 
 
 class LinearBaird(VModel):
@@ -50,14 +50,23 @@ class LinearBaird(VModel):
 
         self.nparams = 7
         if theta is None:
-            theta = torch.rand(self.nparams)  # init randomly in [0,1]
+            theta = self.init_theta()
         else:
-            theta = torch.Tensor(theta)
             assert theta.numel() == self.nparams
-        self.register_parameter("theta", Parameter(theta))
+            assert isinstance(theta, torch.Tensor)
+            theta = theta.clone()
+        self.theta = Parameter(theta)
 
     def forward(self, state, action=None):  # ignore action for Q methods
         return torch.dot(self.M[state, :], self.theta)
+
+    def all_v(self):
+        return torch.mv(self.M, self.theta)
+
+    def init_theta(self):
+        theta = torch.randn(self.nparams).abs()  # init chi-squared
+        theta[-1] += 2  # predominent final value
+        return theta
 
     @staticmethod
     def init_m():

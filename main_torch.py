@@ -37,23 +37,24 @@ def episode(algo, optimizer):  # Should be in main.py
 if __name__ == "__main__":
     # seed randomness ?
 
-    env = Env.Baird
+    env = lambda: Env.Baird(epsilon=0.8, gamma=0.95)
     model = Model.LinearBaird
     policy = lambda _: 0  # Baird : only one action possible
 
-    alpha0, T0 = 0.1, 1000
-    alpha = lambda episode: alpha0 / (1 + episode / T0)
+    alpha0, T0 = 0.1, 100
+    alpha = lambda episode: alpha0 # / (1 + episode / T0)
     RG = lambda theta0: Algo.ResidualGradient(
         env(), model(theta0), policy, constraint=False)
     RGc = lambda theta0: Algo.ResidualGradient(
         env(), model(theta0), policy, constraint=True)
     algorithms = [RG, RGc]
 
-    nexperiment = 10
-    nepisode = 200
+    nexperiment = 1
+    nepisode = 20000
     hist = np.zeros((len(algorithms), nepisode))
     for iexp in range(nexperiment):
-        theta0 = np.random.rand(7)
+        # same initialization for all algorithms
+        theta0 = model().init_theta()
         algos = [algo(theta0) for algo in algorithms]
 
         optimizers = [optim.SGD(algo.model.parameters(), lr=1.)
@@ -67,7 +68,9 @@ if __name__ == "__main__":
             for i, algo in enumerate(algos):
                 schedulers[i].step()  # update learning rate
                 episode(algo, optimizers[i])  # train for one episode
-                hist[i, iepisode] += torch.norm(algo.model.theta, p=2)
+
+                value = algo.model.all_v()
+                hist[i, iepisode] += torch.norm(value, p=2)
     hist /= nexperiment
 
     # plot results
