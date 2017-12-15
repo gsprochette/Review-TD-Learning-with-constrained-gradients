@@ -28,21 +28,30 @@ class Algo(ABC):
         # initialize training informations
         self.nepisode = 0
         self.rewards = []
+        self.name = "Abstract algorithm"
 
     @abstractmethod
-    def policy(self):  # Could be outside the class
+    def policy(self):
         """Decides what action to take at state `state`.
         To be defined in class instances.
         """
         pass
 
-    @abstractmethod
     def loss(self, state, new_state, reward):
         """Computes the loss corresponding to the algorithm
         implemented, e.g. for epsilon-step Q-learning:
         $$
             L = \| q(s_t, a_t|\theta) - r_t - \gamma \max_a q(s_{t+1}, a|\theta) \|^2
         $$
+        """
+        pass
+
+    def highjack_gradient(self, state, new_state, reward):
+        """Used when the update does not derive from a Loss function.
+        All parameters' gradients will be set with the value returned
+        by this function.
+        Output should be a list of Variables, with shapes matching
+        self.model.parameters()
         """
         pass
 
@@ -101,6 +110,7 @@ class ResidualGradient(Algo):
             env, model, mu0=None, constraint=constraint
             )
         self.pol = policy
+        self.name = "Residual Gradient" + ('(Constrained)' if self.constr else '')
 
     def policy(self):
         return self.pol(self.env.state)
