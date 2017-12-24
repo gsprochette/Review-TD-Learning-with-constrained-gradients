@@ -145,7 +145,7 @@ class CartPole(Env):
     def available_actions(self, state):
         ''' Returns the indices of all available actions from state `state`.
         '''
-        return [0, 1]
+        return np.array([0, 1])
 
     def step(self, action):
         return self.gym_env.step(action)
@@ -154,8 +154,36 @@ class CartPole(Env):
         pass
 
 
+class MountainCar(Env):
+    def __init__(self):
+        ''' This class is an embedding of the MountainCar-v0 environment
+        from gym library. '''
+        self.nstate = -1
+        self.naction = 2
+        self.gym_env = gym.make('MountainCar-v0')
+        self.gamma = 1
+        self.state = None
+        self.terminated = False
+
+    def reset(self, _=None):
+        self.terminated = False
+        self.state = self.gym_env.reset()
+
+    def available_actions(self, _=None):
+        ''' 0: push left; 1: no push ; 2: push right.'''
+        return np.array([0, 1, 2])
+
+    def step(self, aciton):
+        next_s, reward, self.terminated, info = self.gym_env.step(action)
+        self.state = next_s
+        return next_s, reward, self.terminated
+
+    def is_terminal(self, state, action):
+        return self.terminated
+
+
 if __name__ == "__main__":
-    test = 'GridWorld'
+    test = 'MountainCar'
     if test == 'GridWorld':
         grid = GridWorld(10, 10, [0, 4])
         grid.reset()
@@ -178,3 +206,14 @@ if __name__ == "__main__":
             action = np.random.choice(baird.available_actions())
             new_state, reward, stop = baird.step(action)
             print(baird.state)
+    elif test == 'MountainCar':
+        mc = MountainCar()
+        mc.reset()
+        print(mc.state)
+        stop = False
+        for i in range(1000):
+            if stop:
+                break
+            action = np.random.choice(mc.available_actions())
+            next_s, reward, stop = mc.step(action)
+            print(mc.state)
