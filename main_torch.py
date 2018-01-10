@@ -7,9 +7,9 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.nn import Parameter
 import matplotlib.pyplot as plt
-import envs.env as Env
-import models.model_torch as Model
-import algos.algo_torch as Algo
+import envs.env as env
+import models.model_torch as model
+import algos.algo_torch as algo
 
 
 def episode(algo):  # Should be in main.py
@@ -37,23 +37,52 @@ def episode(algo):  # Should be in main.py
 if __name__ == "__main__":
     # seed randomness ?
 
-    env = lambda: Env.Baird(epsilon=0.8, gamma=0.95)
-    model = Model.LinearBaird
+    env_func = lambda: env.Baird(epsilon=0.8, gamma=0.95)
+    model = model.LinearBaird
     policy = lambda _: 0  # Baird : only one action possible
 
-    alpha0, T0 = 0.1, 100
+    alpha0, T0 = 0.1, 500
     # alpha = lambda episode: alpha0 / (1 + episode / T0)
     alpha = lambda episode: alpha0
-    
-    RG = lambda theta0: Algo.ResidualGradient(
-        env(), model(theta0), policy, constraint=False)
-    RGc = lambda theta0: Algo.ResidualGradient(
-        env(), model(theta0), policy, constraint=True)
-    algorithms = [RG, RGc]
+
+    TD0 = lambda theta0: algo.TD0(
+        env_func(), model(theta0), policy,
+        constraint=False, lr_fun=alpha)
+
+    TD0c = lambda theta0: algo.TD0(
+        env_func(), model(theta0), policy,
+        constraint=True, lr_fun=alpha)
+
+    RTD0 = lambda theta0: algo.ResidualTD0(
+        env_func(), model(theta0), policy,
+        constraint=False, lr_fun=alpha)
+
+    RTD0c = lambda theta0: algo.ResidualTD0(
+        env_func(), model(theta0), policy,
+        constraint=True, lr_fun=alpha)
+
+    QL = lambda theta0: algo.QLearning(
+        env_func(), model(theta0), policy,
+        constraint=False, lr_fun=alpha)
+
+    QLc = lambda theta0: algo.QLearning(
+        env_func(), model(theta0), policy,
+        constraint=True, lr_fun=alpha)
+
+    RQL = lambda theta0: algo.ResidualQLearning(
+        env_func(), model(theta0), policy,
+        constraint=False, lr_fun=alpha)
+
+    RQLc = lambda theta0: algo.ResidualQLearning(
+        env_func(), model(theta0), policy,
+        constraint=True, lr_fun=alpha)
+
+    algorithms = [TD0, TD0c, RTD0, RTD0c, QL, QLc, RQL, RQLc]
+    n_algo = len(algorithms)
 
     nexperiment = 1
-    nepisode = 1000
-    hist = np.zeros((len(algorithms), nepisode))
+    nepisode = 2000
+    hist = np.zeros((n_algo, nepisode))
     for iexp in range(nexperiment):
         # same initialization for all algorithms
         theta0 = model().init_theta()
@@ -70,10 +99,10 @@ if __name__ == "__main__":
 
     # plot results
     plt.clf()
-    plt.plot(hist[0, :], label=algos[0].name)
-    plt.plot(hist[1, :], label=algos[1].name)
+    for i in range(n_algo):
+        plt.plot(hist[i, :], **algos[i].plot_kwargs())
     plt.xlim([0, nepisode])
-    plt.ylim([0, 1.05 * np.max(hist)])
+    plt.ylim([0, 1.3 * np.max(hist[:, 0])])
     plt.xlabel("Iteration")
     plt.ylabel("l2 norm of theta")
     plt.legend()

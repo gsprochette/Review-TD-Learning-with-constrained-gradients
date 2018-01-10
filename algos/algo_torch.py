@@ -21,7 +21,6 @@ class AbstractAlgo:
     def __init__(self, env, model, mu0=None, constraint=False):
         super(AbstractAlgo, self).__init__()
 
-        self.name = "Abstract algorithm"
         self.env = env  # environment
         self.model = model  # model
         self.mu0 = mu0  # initial distribution
@@ -34,6 +33,11 @@ class AbstractAlgo:
         self.rewards = []
         self.optimizer = optim.SGD(self.model.parameters(), lr=1.)
         self.scheduler = None
+
+        self.name = "Abstract algorithm"
+        self.line_style = '-' if self.constr else '--'
+        self.color = 'k'
+
 
     def update(self, state, new_state, reward):
         """Computes gradient step and projects it if constrained.
@@ -81,6 +85,12 @@ class AbstractAlgo:
         """
         raise NotImplementedError
 
+    def plot_kwargs(self):
+        kwargs = dict(
+            label=self.name, ls=self.line_style, c=self.color
+        )
+        return kwargs
+
     @staticmethod
     def max_value(qval):
         """V approximation through Q : $V(s) = \max_a Q(s, a)$"""
@@ -97,8 +107,12 @@ class TD0(AbstractAlgo):
         super(TD0, self).__init__(
             env, model, mu0=None, constraint=constraint,
             )
+        self.name = "TD0" \
+            + (' -- Constrained' if self.constr else '')
+        self.color = 'tab:blue'
+
         self.pol = policy
-        lr_fun = self.init_lr_fun(lr_fun, None)
+        self.lr_fun = self.init_lr_fun(lr_fun, None)
         self.scheduler = optim.lr_scheduler.LambdaLR(
             self.optimizer, lr_lambda=self.lr_fun)
 
@@ -122,8 +136,12 @@ class ResidualTD0(AbstractAlgo):
         super(ResidualTD0, self).__init__(
             env, model, mu0=None, constraint=constraint,
             )
+        self.name = "Residual TD0" \
+            + (' -- Constrained' if self.constr else '')
+        self.color = 'tab:purple'
+
         self.pol = policy
-        lr_fun = self.init_lr_fun(lr_fun, None)
+        self.lr_fun = self.init_lr_fun(lr_fun, None)
         self.scheduler = optim.lr_scheduler.LambdaLR(
             self.optimizer, lr_lambda=self.lr_fun)
 
@@ -139,11 +157,6 @@ class ResidualTD0(AbstractAlgo):
         err.backward()
 
 
-############################################################################
-######  Q-Learning Methods could have a generic Q(s, .) -> \hat Q(s)  ######
-############################################################################
-
-
 class QLearning(AbstractAlgo):
     """Q-Learning algorithm"""
 
@@ -152,10 +165,12 @@ class QLearning(AbstractAlgo):
         super(QLearning, self).__init__(
             env, model, mu0=None, constraint=constraint,
             )
-        self.pol = policy
-        self.name = "Q-Learning" + (' -- Constrained' if self.constr else '')
+        self.name = "Q-Learning" \
+            + (' -- Constrained' if self.constr else '')
+        self.color = 'tab:orange'
 
-        lr_fun = self.init_lr_fun(lr_fun, None)
+        self.pol = policy
+        self.lr_fun = self.init_lr_fun(lr_fun, None)
         self.scheduler = optim.lr_scheduler.LambdaLR(
             self.optimizer, lr_lambda=self.lr_fun)
 
@@ -181,10 +196,12 @@ class ResidualQLearning(AbstractAlgo):
         super(ResidualQLearning, self).__init__(
             env, model, mu0=None, constraint=constraint,
             )
-        self.pol = policy
-        self.name = "Residual Q-Learning" + (' -- Constrained' if self.constr else '')
+        self.name = "Residual Q-Learning" \
+            + (' -- Constrained' if self.constr else '')
+        self.color = 'tab:red'
 
-        lr_fun = self.init_lr_fun(lr_fun, None)
+        self.pol = policy
+        self.lr_fun = self.init_lr_fun(lr_fun, None)
         self.scheduler = optim.lr_scheduler.LambdaLR(
             self.optimizer, lr_lambda=self.lr_fun)
 
