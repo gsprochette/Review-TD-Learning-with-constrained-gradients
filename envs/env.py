@@ -68,6 +68,7 @@ class GridWorld(Env):
         self.init_transition()
 
         self.init_reward()
+        self.V_softmax = self.softmax_evaluation()
 
     def matrix2lin(self, coord1, coord2):
         return coord1 * self.length + coord2
@@ -111,6 +112,8 @@ class GridWorld(Env):
         return state == self.terminal_state
 
     def softmax_evaluation(self, epsilon=1e-3):
+        ''' Evaluate the softmax policy
+        Output : V (arr nstate) - state value function '''
         V = np.zeros(self.nstate)
         n_iter = 200
         for i in range(n_iter):
@@ -125,8 +128,7 @@ class GridWorld(Env):
                 new_s = np.argwhere(self.transition[s, avail])[:, 1]
                 new_V = self.reward[s, avail] + self.gamma * V[new_s]
                 # Probabilities of transition
-                probs_unnor = np.exp(new_V)
-                probs = probs_unnor / np.sum(probs_unnor)
+                probs = np.exp(new_V) / np.sum(np.exp(new_V))
                 # Value iteration
                 V[s] = np.sum(np.multiply(probs, new_V))
             delta = np.max(np.abs(V - v_old))
@@ -134,6 +136,14 @@ class GridWorld(Env):
                 print('Policy evaluated in {} iterations'.format(i))
                 break
         return V
+
+    def MSE(self, V_estimated):
+        ''' Mean square error of the estimated state value function for the
+        softmax policy.'''
+        assert len(V_estimated) == len(self.V_softmax), \
+            'len(V_estimated) should be 100'
+        diff = self.V_softmax - V_estimated
+        return np.dot(diff, diff)
 
 
 class Baird(Env):
@@ -223,9 +233,13 @@ if __name__ == "__main__":
                 action = np.random.choice(grid.available_actions())
                 new_state, reward, stop = grid.step(action)
                 print(grid.actions[action], grid.lin2matrix(new_state), reward)
-        v = grid.softmax_evaluation()
-        print(v)
-        print(v[v > 0.95])
+        test_softmax_evaluation = False
+        if test_softmax_evaluation:
+            v = grid.softmax_evaluation()
+            print(v)
+        V = np.zeros(100)
+        mse = grid.MSE(V)
+        print('Mean square error', mse)
     elif test == 'Baird':
         baird = Baird(0.5)
         baird.reset()
