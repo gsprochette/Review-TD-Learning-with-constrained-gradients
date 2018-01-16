@@ -54,11 +54,12 @@ class Env(ABC):
 
 class GridWorld(Env):
 
-    def __init__(self, gridh, gridl, terminal_state):
+    def __init__(self, gridh, gridl, terminal_state, gamma=0.95):
         super(GridWorld, self).__init__()
         self.height = gridh
         self.length = gridl
         self.nstate = gridh * gridl
+        self.gamma = gamma
 
         self.actions = ['up', 'left', 'down', 'right']
         self.naction = 4
@@ -108,6 +109,31 @@ class GridWorld(Env):
 
     def is_terminal(self, state, _=None):
         return state == self.terminal_state
+
+    def softmax_evaluation(self, epsilon=1e-3):
+        V = np.zeros(self.nstate)
+        n_iter = 200
+        for i in range(n_iter):
+            v_old = np.copy(V)
+            for s in range(self.nstate):
+                if s == 4:
+                    # Terminal state
+                    continue
+                self.state = s
+                avail = self.available_actions()
+                # new_s contains the new state after each action
+                new_s = np.argwhere(self.transition[s, avail])[:, 1]
+                new_V = self.reward[s, avail] + self.gamma * V[new_s]
+                # Probabilities of transition
+                probs_unnor = np.exp(new_V)
+                probs = probs_unnor / np.sum(probs_unnor)
+                # Value iteration
+                V[s] = np.sum(np.multiply(probs, new_V))
+            delta = np.max(np.abs(V - v_old))
+            if delta < epsilon * (1 - self.gamma) / (2 * self.gamma):
+                print('Policy evaluated in {} iterations'.format(i))
+                break
+        return V
 
 
 class Baird(Env):
@@ -183,18 +209,23 @@ class MountainCar(Env):
 
 
 if __name__ == "__main__":
-    test = 'MountainCar'
+    test = 'GridWorld'
     if test == 'GridWorld':
         grid = GridWorld(10, 10, [0, 4])
         grid.reset()
         print(grid.lin2matrix(grid.state))
         stop = False
-        for i in range(1000):
-            if stop:
-                break
-            action = np.random.choice(grid.available_actions())
-            new_state, reward, stop = grid.step(action)
-            print(grid.actions[action], grid.lin2matrix(new_state), reward)
+        test_step = False
+        if test_step:
+            for i in range(1000):
+                if stop:
+                    break
+                action = np.random.choice(grid.available_actions())
+                new_state, reward, stop = grid.step(action)
+                print(grid.actions[action], grid.lin2matrix(new_state), reward)
+        v = grid.softmax_evaluation()
+        print(v)
+        print(v[v > 0.95])
     elif test == 'Baird':
         baird = Baird(0.5)
         baird.reset()
@@ -217,3 +248,5 @@ if __name__ == "__main__":
             action = np.random.choice(mc.available_actions())
             next_s, reward, stop = mc.step(action)
             print(mc.state)
+    else:
+        print('Environment not implemented')
