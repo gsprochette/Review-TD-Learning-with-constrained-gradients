@@ -20,40 +20,31 @@ class Env(ABC):
 
         self.reward = None  # n*a
         self.transition = None  # n*a*n
-        self.state_ = None
+        self.state = None
         self.stop = False
-
-    @property
-    def state(self):
-        """Can be changed if state_ needs to be transformed first, e.g. put in
-        (x, y) format in gridworld.
-        """
-        return self.state_
 
     def reset(self, mu0=None):
         assert mu0 is None or len(mu0) == self.nstate
         self.stop = False
-        self.state_ = np.random.choice(self.nstate, p=mu0)
+        self.state = np.random.choice(self.nstate, p=mu0)
 
-    def available_actions(self, s=None):
+    def available_actions(self):
         ''' Returns the indices of all available actions from state `state` '''
-        if s is None:
-            s = self.state_
-        all_actions = self.transition[s, :, :]
+        all_actions = self.transition[self.state, :, :]
         is_available = np.sum(all_actions, 1)
         return np.arange(self.naction)[is_available > 0]
 
     def step(self, action):
         '''Warning: changes the internal value of state. If needed, this value
         should be stored before step is taken.'''
-        if self.state_ is None:
-            raise ValueError('The state should be initialized with env.reset')
-        trans_proba = self.transition[self.state_, action, :]
+        if self.state is None:
+            raise ValueError('The state should be initialized with env.step')
+        trans_proba = self.transition[self.state, action, :]
         assert np.sum(trans_proba) > 0
         next_state = np.random.choice(self.nstate, p=trans_proba)
-        reward = self.reward[self.state_, action]
+        reward = self.reward[self.state, action]
         stop = self.is_terminal(next_state, action)
-        self.state_ = next_state
+        self.state = next_state
         self.stop = stop
         return next_state, reward, stop
 
@@ -78,10 +69,6 @@ class GridWorld(Env):
 
         self.init_reward()
         self.V_softmax = self.softmax_evaluation()
-
-    @property
-    def state(self):
-        return self.lin2matrix(self.state_)
 
     def matrix2lin(self, coord1, coord2):
         return coord1 * self.length + coord2
@@ -135,7 +122,8 @@ class GridWorld(Env):
                 if s == 4:
                     # Terminal state
                     continue
-                avail = self.available_actions(s)
+                self.state = s
+                avail = self.available_actions()
                 # new_s contains the new state after each action
                 new_s = np.argwhere(self.transition[s, avail])[:, 1]
                 new_V = self.reward[s, avail] + self.gamma * V[new_s]
@@ -156,6 +144,7 @@ class GridWorld(Env):
             'len(V_estimated) should be 100'
         diff = self.V_softmax - V_estimated
         return np.dot(diff, diff)
+
 
 class Baird(Env):
     def __init__(self, epsilon=0.95, gamma=0.9999):
@@ -209,12 +198,12 @@ class MountainCar(Env):
         self.naction = 2
         self.gym_env = gym.make('MountainCar-v0')
         self.gamma = 1
-        self.state_ = None
+        self.state = None
         self.terminated = False
 
     def reset(self, _=None):
         self.terminated = False
-        self.state_ = self.gym_env.reset()
+        self.state = self.gym_env.reset()
 
     def available_actions(self, _=None):
         ''' 0: push left; 1: no push ; 2: push right.'''
@@ -222,7 +211,7 @@ class MountainCar(Env):
 
     def step(self, aciton):
         next_s, reward, self.terminated, info = self.gym_env.step(action)
-        self.state_ = next_s
+        self.state = next_s
         return next_s, reward, self.terminated
 
     def is_terminal(self, state, action):
