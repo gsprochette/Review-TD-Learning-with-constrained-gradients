@@ -37,7 +37,7 @@ def softmax_action(qval):
     """
 
     probs = softmax(qval)
-    action = np.choice(np.size(qval, p=probs))
+    action = np.choice(np.size(qval), p=probs)
     return action
 
 

@@ -20,16 +20,12 @@ def episode(algo):
     while not stop:
         # take action
         action_idx = algo.policy()
-
-        #### WARNING : step take action or action_idx ?
-        # -> action_idx
-
-        next_state, reward, stop = algo.env.step(action)
+        next_state, reward, stop = algo.env.step(action_idx)
         old_state = state
         state = algo.env.state
 
         # update model parameters
-        algo.update(old_state, state, reward)
+        algo.update(old_state, state, reward, action_idx)
 
         # log
         reward_acc.append(reward)

@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.nn import Parameter
 import matplotlib.pyplot as plt
-import envs.env as env
+import envs.env_torch as env
 import models.model_torch as model
 import algos.algo_torch as algo
 import policy
@@ -19,15 +19,27 @@ def episode(algo):
     state = algo.env.state
     stop = False
     reward_acc = []
+    if hasattr(state, '__iter__'):  # list or tuple
+        state = Variable(torch.Tensor(state))
+        state = state.unsqueeze(0).unsqueeze(1)
+    else:
+        state = Variable(torch.Tensor([state]))
     while not stop:
         # take action
-        action = algo.policy()
-        next_state, reward, stop = algo.env.step(action)
+        action_idx = algo.policy()  # WARNING: this should choose an AVAILABLE action
+        print(state)
+        print(action_idx)
+        next_state, reward, stop = algo.env.step(action_idx)
         old_state = state
         state = algo.env.state
+        if hasattr(state, '__iter__'):  # list or tuple
+            state = Variable(torch.Tensor(state))
+            state = state.unsqueeze(0).unsqueeze(1)
+        else:
+            state = Variable(torch.Tensor([state]))
 
         # update model parameters
-        algo.update(old_state, state, reward)
+        algo.update(old_state, state, reward, action_idx)
 
         # log
         reward_acc.append(reward)
@@ -38,9 +50,9 @@ def episode(algo):
 if __name__ == "__main__":
     # seed randomness ?
 
-    env_func = lambda: env.GridWorld(10, 10, (0, 4))
+    env_func = lambda: env.GridWorld(3, 3, (0, 0))
     mod = lambda model0: deepcopy(model0)
-    pol = policy.best_action  # Baird : only one action possible
+    pol = policy.best_action
 
     alpha0, T0 = 0.1, 500
     # alpha = lambda episode: alpha0 / (1 + episode / T0)
@@ -113,7 +125,7 @@ if __name__ == "__main__":
     plt.ylabel("l2 norm of theta")
     plt.legend()
     plt.title(
-        "Baird's counterexample" \
+        "Learning on GridWorld" \
         + ("" if nexperiment == 1 else \
         ", averaged on {} experiments".format(nexperiment)))
     plt.show()

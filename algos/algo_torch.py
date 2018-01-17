@@ -52,13 +52,13 @@ class AbstractAlgo:
         self.color = 'k'
 
 
-    def update(self, state, new_state, reward):
+    def update(self, state, new_state, reward, action_idx):
         """Computes gradient step and projects it if constrained.
         Returns current loss and parameter update.
         """
 
         self.model.zero_grad()
-        self.set_gradient(state, new_state, reward)
+        self.set_gradient(state, new_state, reward, action_idx)
 
         if self.constr:
             g_vs = self.model.g_v(new_state)
@@ -127,7 +127,7 @@ class TD0(AbstractAlgo):
         action_idx = self.pol(None)
         return action_idx
 
-    def set_gradient(self, state, new_state, reward):
+    def set_gradient(self, state, new_state, reward, action_idx=None):
         v_curr = self.model(state)
         v_next = self.model(new_state)
         if not self.residual:
@@ -161,23 +161,23 @@ class QLearning(AbstractAlgo):
         state = self.env.state
         if hasattr(state, '__iter__'):  # list or tuple
             state = Variable(torch.Tensor(state))
+            state = state.unsqueeze(0).unsqueeze(1)
         else:
             state = Variable(torch.Tensor([state]))
-        state = state.unsqueeze(0).unsqueeze(1)
         qval = self.model(state)
-        qval = qval.squeeze(1).squeeze(0)
+        qval = qval.squeeze()
         qval = qval.data.numpy()
         action_idx = self.pol(qval)
 
         return action_idx
 
-    def set_gradient(self, state, action_idx, new_state, reward):
-        print(new_state)
+    def set_gradient(self, state, new_state, reward, action_idx):
         q_next = self.model(new_state)
         q_best_a = self.target(q_next)
         if not self.residual:
             q_best_a.detach_()  # ignore gradient of bootstrap
         q_curr = self.model(state)  # Q(s_t, a)
+        q_curr = q_curr.squeeze()[action_idx]
         td = q_curr - reward - self.env.gamma * q_best_a
 
         err = td ** 2
@@ -208,22 +208,22 @@ class DeepQLearning(AbstractAlgo):
         state = self.env.state
         if hasattr(state, '__iter__'):  # list or tuple
             state = Variable(torch.Tensor(state))
+            state = state.unsqueeze(0).unsqueeze(1)
         else:
             state = Variable(torch.Tensor([state]))
-        state = state.unsqueeze(0).unsqueeze(1)
         qval = self.model(state)
-        qval = qval.squeeze(1).squeeze(0)
+        qval = qval.squeeze()
         qval = qval.data.numpy()
         action_idx = self.pol(qval)
 
         return action_idx
 
-    def set_gradient(self, state, new_state, reward):
+    def set_gradient(self, state, new_state, reward, action_idx):
         q_next = self.model(new_state)
         q_best_a = self.target(q_next)
         if self.residual:
             q_best_a.detach_()  # ignore gradient of bootstrap
-        q_curr = self.model(state)  # Q(s_t, a)
+        q_curr = self.model(state)[action_idx]  # Q(s_t, a)
         td = q_curr - reward - self.env.gamma * q_best_a
 
         loss = self.huber_loss(td)
