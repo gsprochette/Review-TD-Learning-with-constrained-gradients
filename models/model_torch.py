@@ -43,7 +43,7 @@ class LinearBaird(VModel):
             theta = theta.clone()
         self.theta = Parameter(theta)
 
-    def forward(self, state, action=None):  # ignore action for Q methods
+    def forward(self, state):  # ignore action for Q methods
         return torch.dot(self.M[state, :], self.theta)
 
     def all_v(self):
@@ -69,9 +69,9 @@ class LinearBaird(VModel):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(3, 32)  # Not sure
-        self.fc2 = nn.Linear(32, 32)
-        self.fc3 = nn.Linear(32, 1)
+        self.fc1 = nn.Linear(2, 5)  # input is (x, y)
+        self.fc2 = nn.Linear(5, 64)
+        self.fc3 = nn.Linear(64, 2)  # output is (Q(-1), Q(+1))
 
     def forward(self, x):
         x = F.relu(self.fc1(x))

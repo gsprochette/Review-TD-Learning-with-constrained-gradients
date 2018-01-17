@@ -1,17 +1,15 @@
 import numpy as np
-from copy import deepcopy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as I
 import torch.optim as optim
-from torch.autograd import Variable
-from torch.nn import Parameter
 import matplotlib.pyplot as plt
 import envs.env as env
 import models.model_torch as model
 import algos.algo_torch as algo
 import policy
+
 
 def episode(algo):
     """Trains on one full episode"""
@@ -21,7 +19,11 @@ def episode(algo):
     reward_acc = []
     while not stop:
         # take action
-        action = algo.policy()
+        action_idx = algo.policy()
+
+        #### WARNING : step take action or action_idx ?
+        # -> action_idx
+
         next_state, reward, stop = algo.env.step(action)
         old_state = state
         state = algo.env.state
@@ -38,51 +40,48 @@ def episode(algo):
 if __name__ == "__main__":
     # seed randomness ?
 
-    env_func = lambda: env.GridWorld(10, 10, (0, 4))
-    mod = lambda model0: deepcopy(model0)
-    pol = policy.best_action  # Baird : only one action possible
+    env_func = lambda: env.Baird(epsilon=0.8, gamma=0.95)
+    mod = model.LinearBaird
+    policy = lambda _: 0  # Baird : only one action possible
 
     alpha0, T0 = 0.1, 500
     # alpha = lambda episode: alpha0 / (1 + episode / T0)
     alpha = lambda episode: alpha0
-    args = lambda model0: (env_func(), mod(model0), pol)
+    args = lambda theta0: (env_func(), mod(theta0), policy)
     kwargs = lambda constr, res: dict(
         lr_fun=alpha, target='best', constraint=constr, residual=res)
 
-    TD0 = lambda model0: algo.TD0(
-        *args(model0), **kwargs(False, False))
-    TD0c = lambda model0: algo.TD0(
-        *args(model0), **kwargs(True, False))
-    RTD0 = lambda model0: algo.TD0(
-        *args(model0), **kwargs(False, True))
-    RTD0c = lambda model0: algo.TD0(
-        *args(model0), **kwargs(True, True))
+    TD0 = lambda theta0: algo.TD0(
+        *args(theta0), **kwargs(False, False))
+    TD0c = lambda theta0: algo.TD0(
+        *args(theta0), **kwargs(True, False))
+    RTD0 = lambda theta0: algo.TD0(
+        *args(theta0), **kwargs(False, True))
+    RTD0c = lambda theta0: algo.TD0(
+        *args(theta0), **kwargs(True, True))
 
-    QL = lambda model0: algo.QLearning(
-        *args(model0), **kwargs(False, False))
-    QLc = lambda model0: algo.QLearning(
-        *args(model0), **kwargs(True, False))
-    RQL = lambda model0: algo.QLearning(
-        *args(model0), **kwargs(False, True))
-    RQLc = lambda model0: algo.QLearning(
-        *args(model0), **kwargs(True, True))
+    QL = lambda theta0: algo.QLearning(
+        *args(theta0), **kwargs(False, False))
+    QLc = lambda theta0: algo.QLearning(
+        *args(theta0), **kwargs(True, False))
+    RQL = lambda theta0: algo.QLearning(
+        *args(theta0), **kwargs(False, True))
+    RQLc = lambda theta0: algo.QLearning(
+        *args(theta0), **kwargs(True, True))
 
-    DQN = lambda model0: algo.DeepQLearning(
-        *args(model0), **kwargs(False, False))
-    DQNc = lambda model0: algo.DeepQLearning(
-        *args(model0), **kwargs(True, False))
-    RDQN = lambda model0: algo.DeepQLearning(
-        *args(model0), **kwargs(False, True))
-    RDQNc = lambda model0: algo.DeepQLearning(
-        *args(model0), **kwargs(True, True))
+    DQN = lambda theta0: algo.DeepQLearning(
+        *args(theta0), **kwargs(False, False))
+    DQNc = lambda theta0: algo.DeepQLearning(
+        *args(theta0), **kwargs(True, False))
+    RDQN = lambda theta0: algo.DeepQLearning(
+        *args(theta0), **kwargs(False, True))
+    RDQNc = lambda theta0: algo.DeepQLearning(
+        *args(theta0), **kwargs(True, True))
 
     algorithms = [
         TD0, TD0c, RTD0, RTD0c,
         QL, QLc, RQL, RQLc,
         DQN, DQNc, RDQN, RDQNc
-        ]
-    algorithms = [
-        QL, QLc, RQL, RQLc,
         ]
     n_algo = len(algorithms)
 
@@ -91,8 +90,8 @@ if __name__ == "__main__":
     hist = np.zeros((n_algo, nepisode))
     for iexp in range(nexperiment):
         # same initialization for all algorithms
-        model0 = model.Net()
-        algos = [algo(model0) for algo in algorithms]
+        theta0 = mod().init_theta()
+        algos = [algo(theta0) for algo in algorithms]
 
         for iepisode in range(nepisode):
             for i, algo in enumerate(algos):

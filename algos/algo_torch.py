@@ -11,6 +11,8 @@ import torch.nn.init as I
 import torch.optim as optim
 from torch.autograd import Variable
 from torch.nn import Parameter
+import torch.nn.functional as F
+import policy
 
 
 class AbstractAlgo:
@@ -18,14 +20,25 @@ class AbstractAlgo:
     defined in this directory.
     """
 
-    def __init__(self, env, model, mu0=None, constraint=False):
+    def __init__(self, env, model, target=None, mu0=None,
+                 constraint=False, residual=False):
         super(AbstractAlgo, self).__init__()
 
         self.env = env  # environment
         self.model = model  # model
         self.mu0 = mu0  # initial distribution
 
+        if target is None:  # value
+            self.target = None
+        elif target == 'best':
+            self.target = policy.best
+        elif target == 'softmax':
+            self.target = policy.softmax
+        else:
+            raise ValueError('Unknown target: "{}"'.format(target))
+
         self.constr = constraint  # constrains if True
+        self.residual = residual
         self.lr_fun = None
 
         # initialize training informations
@@ -91,66 +104,34 @@ class AbstractAlgo:
         )
         return kwargs
 
-    @staticmethod
-    def max_value(qval):
-        """V approximation through Q : $V(s) = \max_a Q(s, a)$"""
-
-        if qval.numel() == 1:  # value function
-            return qval
-        return torch.max(qval)
-
 
 class TD0(AbstractAlgo):
     """Temporal Differences TD0 algorithm"""
-    def __init__(self, env, model, policy, mu0=None,
-                 constraint=False, lr_fun=None):
+    def __init__(self, env, model, pol, target=None, mu0=None,
+                 constraint=False, residual=False,
+                 lr_fun=None):
         super(TD0, self).__init__(
-            env, model, mu0=None, constraint=constraint,
+            env, model, target=None, mu0=mu0,
+            constraint=constraint, residual=residual
             )
-        self.name = "TD0" \
+        self.name = ('R' if self.residual else '') + "TD0" \
             + (' -- Constrained' if self.constr else '')
-        self.color = 'tab:blue'
+        self.color = 'tab:purple' if self.residual else 'tab:blue'
 
-        self.pol = policy
+        self.pol = pol  # policy
         self.lr_fun = self.init_lr_fun(lr_fun, None)
         self.scheduler = optim.lr_scheduler.LambdaLR(
             self.optimizer, lr_lambda=self.lr_fun)
 
     def policy(self):
-        return self.pol(self.env.state)
+        action_idx = self.pol(None)
+        return action_idx
 
     def set_gradient(self, state, new_state, reward):
         v_curr = self.model(state)
         v_next = self.model(new_state)
-        td = v_curr - reward - self.env.gamma * v_next
-
-        v_curr.backward()
-        for param in self.model.parameters():
-            param.grad *= 2 * td
-
-
-class ResidualTD0(AbstractAlgo):
-    """Residual TD0 algorithm"""
-    def __init__(self, env, model, policy, mu0=None,
-                 constraint=False, lr_fun=None):
-        super(ResidualTD0, self).__init__(
-            env, model, mu0=None, constraint=constraint,
-            )
-        self.name = "Residual TD0" \
-            + (' -- Constrained' if self.constr else '')
-        self.color = 'tab:purple'
-
-        self.pol = policy
-        self.lr_fun = self.init_lr_fun(lr_fun, None)
-        self.scheduler = optim.lr_scheduler.LambdaLR(
-            self.optimizer, lr_lambda=self.lr_fun)
-
-    def policy(self):
-        return self.pol(self.env.state)
-
-    def set_gradient(self, state, new_state, reward):
-        v_curr = self.model(state)
-        v_next = self.model(new_state)
+        if not self.residual:
+            v_next.detach_()  # ignore gradient of bootstrap
         td = v_curr - reward - self.env.gamma * v_next
 
         err = td ** 2
@@ -160,59 +141,98 @@ class ResidualTD0(AbstractAlgo):
 class QLearning(AbstractAlgo):
     """Q-Learning algorithm"""
 
-    def __init__(self, env, model, policy, mu0=None,
-                 constraint=False, lr_fun=None):
+    def __init__(self, env, model, pol, target=None, mu0=None,
+                 constraint=False, residual=False,
+                 lr_fun=None):
         super(QLearning, self).__init__(
-            env, model, mu0=None, constraint=constraint,
+            env, model, target=target, mu0=mu0,
+            constraint=constraint, residual=residual
             )
-        self.name = "Q-Learning" \
+        self.name = ('R' if self.residual else '') + "Q-Learning" \
             + (' -- Constrained' if self.constr else '')
-        self.color = 'tab:orange'
+        self.color = 'tab:red' if self.residual else 'tab:orange'
 
-        self.pol = policy
+        self.pol = pol
         self.lr_fun = self.init_lr_fun(lr_fun, None)
         self.scheduler = optim.lr_scheduler.LambdaLR(
             self.optimizer, lr_lambda=self.lr_fun)
 
     def policy(self):
-        return self.pol(self.env.state)
+        state = self.env.state
+        if hasattr(state, '__iter__'):  # list or tuple
+            state = Variable(torch.Tensor(state))
+        else:
+            state = Variable(torch.Tensor([state]))
+        state = state.unsqueeze(0).unsqueeze(1)
+        qval = self.model(state)
+        qval = qval.squeeze(1).squeeze(0)
+        qval = qval.data.numpy()
+        action_idx = self.pol(qval)
 
-    def set_gradient(self, state, new_state, reward):
+        return action_idx
+
+    def set_gradient(self, state, action_idx, new_state, reward):
+        print(new_state)
         q_next = self.model(new_state)
-        q_best_a = self.max_value(q_next)
+        q_best_a = self.target(q_next)
+        if not self.residual:
+            q_best_a.detach_()  # ignore gradient of bootstrap
         q_curr = self.model(state)  # Q(s_t, a)
         td = q_curr - reward - self.env.gamma * q_best_a
 
-        q_curr.backward()
-        for param in self.model.parameters():
-            param.grad *= 2 * td
+        err = td ** 2
+        err.backward()
 
 
-class ResidualQLearning(AbstractAlgo):
-    """Residual Gradient algorithm"""
+class DeepQLearning(AbstractAlgo):
+    """Q-Learning algorithm"""
 
-    def __init__(self, env, model, policy, mu0=None,
-                 constraint=False, lr_fun=None):
-        super(ResidualQLearning, self).__init__(
-            env, model, mu0=None, constraint=constraint,
+    def __init__(self, env, model, pol, target=None, mu0=None,
+                 constraint=False, residual=False,
+                 lr_fun=None):
+        super(DeepQLearning, self).__init__(
+            env, model, target=target, mu0=mu0,
+            constraint=constraint, residual=residual
             )
-        self.name = "Residual Q-Learning" \
+        self.name = ('R' if self.residual else '') \
+            + "Deep Q-Learning" \
             + (' -- Constrained' if self.constr else '')
-        self.color = 'tab:red'
+        self.color = 'tab:brown' if self.residual else 'tab:green'
 
-        self.pol = policy
+        self.pol = pol
         self.lr_fun = self.init_lr_fun(lr_fun, None)
         self.scheduler = optim.lr_scheduler.LambdaLR(
             self.optimizer, lr_lambda=self.lr_fun)
 
     def policy(self):
-        return self.pol(self.env.state)
+        state = self.env.state
+        if hasattr(state, '__iter__'):  # list or tuple
+            state = Variable(torch.Tensor(state))
+        else:
+            state = Variable(torch.Tensor([state]))
+        state = state.unsqueeze(0).unsqueeze(1)
+        qval = self.model(state)
+        qval = qval.squeeze(1).squeeze(0)
+        qval = qval.data.numpy()
+        action_idx = self.pol(qval)
+
+        return action_idx
 
     def set_gradient(self, state, new_state, reward):
         q_next = self.model(new_state)
-        q_best_a = self.max_value(q_next)
-        q_curr = self.model(state)
-        td = q_curr - reward - self.env.gamma * q_best_a  # delta
+        q_best_a = self.target(q_next)
+        if self.residual:
+            q_best_a.detach_()  # ignore gradient of bootstrap
+        q_curr = self.model(state)  # Q(s_t, a)
+        td = q_curr - reward - self.env.gamma * q_best_a
 
-        err = td ** 2
-        err.backward()
+        loss = self.huber_loss(td)
+        loss.backward()
+
+    @staticmethod
+    def huber_loss(delta):
+        delta_abs = torch.abs(delta)
+        switch = (delta_abs[0] < 1).data[0]
+
+        loss = delta_abs ** 2 / 2 if switch else delta_abs - 0.5
+        return loss
