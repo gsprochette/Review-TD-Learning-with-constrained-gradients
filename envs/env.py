@@ -61,11 +61,12 @@ class Env(ABC):
 
 class GridWorld(Env):
 
-    def __init__(self, gridh, gridl, terminal_state):
+    def __init__(self, gridh, gridl, terminal_state, gamma=0.95):
         super(GridWorld, self).__init__()
         self.height = gridh
         self.length = gridl
         self.nstate = gridh * gridl
+        self.gamma = gamma
 
         self.actions = ['up', 'left', 'down', 'right']
         self.naction = 4
@@ -74,6 +75,7 @@ class GridWorld(Env):
         self.init_transition()
 
         self.init_reward()
+        self.V_softmax = self.softmax_evaluation()
 
     @property
     def state(self):
@@ -120,6 +122,44 @@ class GridWorld(Env):
     def is_terminal(self, state, _=None):
         return state == self.terminal_state
 
+<<<<<<< HEAD
+=======
+    def softmax_evaluation(self, epsilon=1e-3):
+        ''' Evaluate the softmax policy
+        Output : V (arr nstate) - state value function '''
+        V = np.zeros(self.nstate)
+        n_iter = 200
+        for i in range(n_iter):
+            v_old = np.copy(V)
+            for s in range(self.nstate):
+                if s == 4:
+                    # Terminal state
+                    continue
+                self.state = s
+                avail = self.available_actions()
+                # new_s contains the new state after each action
+                new_s = np.argwhere(self.transition[s, avail])[:, 1]
+                new_V = self.reward[s, avail] + self.gamma * V[new_s]
+                # Probabilities of transition
+                probs = np.exp(new_V) / np.sum(np.exp(new_V))
+                # Value iteration
+                V[s] = np.sum(np.multiply(probs, new_V))
+            delta = np.max(np.abs(V - v_old))
+            if delta < epsilon * (1 - self.gamma) / (2 * self.gamma):
+                print('Policy evaluated in {} iterations'.format(i))
+                break
+        return V
+
+    def MSE(self, V_estimated):
+        ''' Mean square error of the estimated state value function for the
+        softmax policy.'''
+        assert len(V_estimated) == len(self.V_softmax), \
+            'len(V_estimated) should be 100'
+        diff = self.V_softmax - V_estimated
+        return np.dot(diff, diff)
+
+
+>>>>>>> 0ab20df2845637693a9b6a663d3a75da42eb436e
 class Baird(Env):
     def __init__(self, epsilon=0.95, gamma=0.9999):
         ''' Epsilon : probability of state six being terminal
@@ -193,18 +233,27 @@ class MountainCar(Env):
 
 
 if __name__ == "__main__":
-    test = 'MountainCar'
+    test = 'GridWorld'
     if test == 'GridWorld':
         grid = GridWorld(10, 10, [0, 4])
         grid.reset()
         print(grid.lin2matrix(grid.state))
         stop = False
-        for i in range(1000):
-            if stop:
-                break
-            action = np.random.choice(grid.available_actions())
-            new_state, reward, stop = grid.step(action)
-            print(grid.actions[action], grid.lin2matrix(new_state), reward)
+        test_step = False
+        if test_step:
+            for i in range(1000):
+                if stop:
+                    break
+                action = np.random.choice(grid.available_actions())
+                new_state, reward, stop = grid.step(action)
+                print(grid.actions[action], grid.lin2matrix(new_state), reward)
+        test_softmax_evaluation = False
+        if test_softmax_evaluation:
+            v = grid.softmax_evaluation()
+            print(v)
+        V = np.zeros(100)
+        mse = grid.MSE(V)
+        print('Mean square error', mse)
     elif test == 'Baird':
         baird = Baird(0.5)
         baird.reset()
@@ -227,3 +276,5 @@ if __name__ == "__main__":
             action = np.random.choice(mc.available_actions())
             next_s, reward, stop = mc.step(action)
             print(mc.state)
+    else:
+        print('Environment not implemented')
