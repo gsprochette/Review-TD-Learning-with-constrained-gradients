@@ -35,9 +35,11 @@ class Env(ABC):
         self.stop = False
         self.state_ = np.random.choice(self.nstate, p=mu0)
 
-    def available_actions(self):
+    def available_actions(self, s=None):
         ''' Returns the indices of all available actions from state `state` '''
-        all_actions = self.transition[self.state_, :, :]
+        if s is None:
+            s = self.state_
+        all_actions = self.transition[s, :, :]
         is_available = np.sum(all_actions, 1)
         return np.arange(self.naction)[is_available > 0]
 
@@ -122,8 +124,6 @@ class GridWorld(Env):
     def is_terminal(self, state, _=None):
         return state == self.terminal_state
 
-<<<<<<< HEAD
-=======
     def softmax_evaluation(self, epsilon=1e-3):
         ''' Evaluate the softmax policy
         Output : V (arr nstate) - state value function '''
@@ -135,8 +135,7 @@ class GridWorld(Env):
                 if s == 4:
                     # Terminal state
                     continue
-                self.state = s
-                avail = self.available_actions()
+                avail = self.available_actions(s)
                 # new_s contains the new state after each action
                 new_s = np.argwhere(self.transition[s, avail])[:, 1]
                 new_V = self.reward[s, avail] + self.gamma * V[new_s]
@@ -158,8 +157,6 @@ class GridWorld(Env):
         diff = self.V_softmax - V_estimated
         return np.dot(diff, diff)
 
-
->>>>>>> 0ab20df2845637693a9b6a663d3a75da42eb436e
 class Baird(Env):
     def __init__(self, epsilon=0.95, gamma=0.9999):
         ''' Epsilon : probability of state six being terminal
