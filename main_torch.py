@@ -13,7 +13,7 @@ import models.model_torch as model
 import algos.algo_torch as algo
 import policy
 
-def episode(algo):
+def episode(algo, max_iter=200):
     """Trains on one full episode"""
     algo.env.reset(algo.mu0)
     state = algo.env.state
@@ -24,11 +24,14 @@ def episode(algo):
         state = state.unsqueeze(0).unsqueeze(1)
     else:
         state = Variable(torch.Tensor([state]))
-    while not stop:
+
+    iter = 0
+    while not stop and iter < max_iter:
+        iter += 1
         # take action
-        action_idx = algo.policy()  # WARNING: this should choose an AVAILABLE action
-        print(state)
-        print(action_idx)
+        action_idx = algo.policy()
+        # print("state: {}".format(state))
+        # print("action idx: {}".format(action_idx))
         next_state, reward, stop = algo.env.step(action_idx)
         old_state = state
         state = algo.env.state
@@ -45,21 +48,24 @@ def episode(algo):
         reward_acc.append(reward)
     algo.nepisode += 1
     algo.rewards.append(reward_acc)
+    return reward_acc
 
 
 if __name__ == "__main__":
     # seed randomness ?
+    np.seterr(invalid='raise')  # sauf underflow error...
 
-    env_func = lambda: env.GridWorld(3, 3, (0, 0))
+    # env_func = lambda: env.GridWorld(10, 10, (0, 0))
+    env_func = lambda: env.CartPole()
     mod = lambda model0: deepcopy(model0)
-    pol = policy.best_action
+    pol = policy.EpsilonGreedyAction(0.3)
 
-    alpha0, T0 = 0.1, 500
+    alpha0, T0 = 1.e-3, 500
     # alpha = lambda episode: alpha0 / (1 + episode / T0)
     alpha = lambda episode: alpha0
     args = lambda model0: (env_func(), mod(model0), pol)
     kwargs = lambda constr, res: dict(
-        lr_fun=alpha, target='best', constraint=constr, residual=res)
+        lr_fun=alpha, target="best", constraint=constr, residual=res)
 
     TD0 = lambda model0: algo.TD0(
         *args(model0), **kwargs(False, False))
@@ -94,38 +100,46 @@ if __name__ == "__main__":
         DQN, DQNc, RDQN, RDQNc
         ]
     algorithms = [
-        QL, QLc, RQL, RQLc,
+        QL,
         ]
     n_algo = len(algorithms)
 
-    nexperiment = 1
-    nepisode = 200
+    nexperiment = 10
+    nepisode = 100
     hist = np.zeros((n_algo, nepisode))
     for iexp in range(nexperiment):
+        print("experiment {}".format(iexp))
         # same initialization for all algorithms
-        model0 = model.Net()
-        algos = [algo(model0) for algo in algorithms]
+        model0 = model.CartpoleNet()
+        algos = [alg(model0) for alg in algorithms]
 
-        for iepisode in range(nepisode):
-            for i, algo in enumerate(algos):
-                algo.scheduler.step()  # update learning rate
-                episode(algo)  # train for one episode
+        for i, alg in enumerate(algos):
+            print(alg.name)
+            try:
+                pol.reset()
+            except AttributeError:
+                pass
+            for iepisode in range(nepisode):
+                alg.scheduler.step()  # update learning rate
+                rewards = episode(alg)  # train for one episode
 
-                value = algo.model.all_v()
-                hist[i, iepisode] += torch.norm(value, p=2)
-    hist /= nexperiment
+                # rewards histogram
+                hist[i, iepisode] += float(np.sum(rewards)) / nexperiment
+                # number of steps to reach terminal state
+        print('\n')
 
     # plot results
     plt.clf()
     for i in range(n_algo):
         plt.plot(hist[i, :], **algos[i].plot_kwargs())
     plt.xlim([0, nepisode])
-    plt.ylim([0, 1.3 * np.max(hist[:, 0])])
+    plt.ylim([0, 20])
     plt.xlabel("Iteration")
-    plt.ylabel("l2 norm of theta")
+    plt.ylabel("Cumulated Reward")
     plt.legend()
     plt.title(
-        "Learning on GridWorld" \
+        "Learning on Cartpole" \
         + ("" if nexperiment == 1 else \
         ", averaged on {} experiments".format(nexperiment)))
+    plt.savefig('Cartpole')
     plt.show()

@@ -6,6 +6,8 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.nn import Parameter
 
+from utils import hook
+
 
 class VModel(nn.Module):
     """Specifies the way the state value function is estimated, and the
@@ -16,17 +18,65 @@ class VModel(nn.Module):
         super(VModel, self).__init__()
         self.register_parameter("theta", None)
 
-    def g_v(self, state):
+    def g_v(self, state, action_idx=None):
         """Returns a list of unit vectors. Each vector is the normalized
         gradient of the value function in the parameter with same index in
         self.parameters().
         """
 
+        gradients = [param.grad for param in self.parameters()]  # remember gradients
         self.zero_grad()
-        val = self.forward(state)  # compute value function
+        val = self.forward(state)
         val.backward()
-        return [param.grad / torch.norm(param.grad, p=2)
-                for param in self.parameters()]
+
+        is_zero = [torch.norm(param.grad, p=2).data[0] == 0 for param in self.parameters()]
+        direction = [param.grad / torch.norm(param.grad, p=2)
+                  for param in self.parameters()]
+        for i, vect in enumerate(direction):
+            if is_zero[i]:
+                direction[i] = torch.zeros_like(vect)
+
+        for i, param in enumerate(self.parameters()):  # recover gradients
+            print("param: {}\n{}".format(param.grad.shape, param.grad))
+            print("gradients[i]: {}\n{}".format(gradients[i].shape, gradients[i]))
+            param.grad = gradients[i]
+
+        return direction
+
+
+class QModel(nn.Module):
+    """Specifies the way the Q function is estimated, and the
+    corresponding constraint.
+    """
+
+    def __init__(self):
+        super(QModel, self).__init__()
+        self.register_parameter("theta", None)
+
+    def g_v(self, state, action_idx):
+        """Returns a list of unit vectors. Each vector is the normalized
+        gradient of the value function in the parameter with same index in
+        self.parameters().
+        """
+
+        gradients = [param.grad for param in self.parameters()]  # remember gradients
+
+        self.zero_grad()
+        val = self.forward(state)
+        val = val.squeeze()[action_idx]
+        val.backward()
+
+        is_zero = [torch.norm(param.grad, p=2).data[0] == 0 for param in self.parameters()]
+        direction = [param.grad / torch.norm(param.grad, p=2)
+                     for param in self.parameters()]
+        for i, vect in enumerate(direction):
+            if is_zero[i]:
+                direction[i] = torch.zeros_like(vect)
+
+        for i, param in enumerate(self.parameters()):  # recover gradients
+            param.grad = gradients[i]
+
+        return direction
 
 
 class LinearBaird(VModel):
@@ -68,16 +118,30 @@ class LinearBaird(VModel):
         return M
 
 
-class Net(nn.Module):
+class GridNet(QModel):
     def __init__(self):
-        super(Net, self).__init__()
+        super(GridNet, self).__init__()
         self.fc1 = nn.Linear(2, 32)  # input is (x, y)
         self.fc2 = nn.Linear(32, 32)
-        self.fc3 = nn.Linear(32, 2)  # output is (Q(-1), Q(+1))
+        self.fc3 = nn.Linear(32, 4)  # output is (Q(-1), Q(+1))
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+
+
+class CartpoleNet(QModel):
+    def __init__(self):
+        super(CartpoleNet, self).__init__()
+        self.fc1 = nn.Linear(4, 64)  # input is (x, y)
+        # self.fc2 = nn.Linear(5, 32)
+        self.fc3 = nn.Linear(64, 2)  # output is (Q(-1), Q(+1))
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        # x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
 

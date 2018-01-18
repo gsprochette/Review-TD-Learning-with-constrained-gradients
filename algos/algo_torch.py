@@ -28,14 +28,14 @@ class AbstractAlgo:
         self.model = model  # model
         self.mu0 = mu0  # initial distribution
 
-        if target is None:  # value
+        if target == None:
             self.target = None
-        elif target == 'best':
+        elif target == "best":
             self.target = policy.best
-        elif target == 'softmax':
+        elif target == "softmax":
             self.target = policy.softmax
         else:
-            raise ValueError('Unknown target: "{}"'.format(target))
+            raise ValueError("Unknown target: '{}'".format(target))
 
         self.constr = constraint  # constrains if True
         self.residual = residual
@@ -45,26 +45,32 @@ class AbstractAlgo:
         self.nepisode = 0
         self.rewards = []
         self.optimizer = optim.SGD(self.model.parameters(), lr=1.)
+        # self.optimizer = optim.Adam(self.model.parameters(), lr=1.)
         self.scheduler = None
 
         self.name = "Abstract algorithm"
         self.line_style = '-' if self.constr else '--'
         self.color = 'k'
 
-
     def update(self, state, new_state, reward, action_idx):
         """Computes gradient step and projects it if constrained.
         Returns current loss and parameter update.
         """
 
-        self.model.zero_grad()
         self.set_gradient(state, new_state, reward, action_idx)
 
         if self.constr:
-            g_vs = self.model.g_v(new_state)
-            for param, g_v in zip(self.model.parameters(), g_vs):
-                param.grad -= torch.dot(param.grad, g_v) * g_v
+            g_vs = self.model.g_v(new_state, action_idx)
+            for i, param in enumerate(self.model.parameters()):
+                print("curr:\n{}".format(param.grad.shape))
+                print("new:\n{}".format((torch.dot(param.grad, g_vs[i]) * g_vs[i]).shape))
+                param.grad -= torch.dot(param.grad, g_vs[i]) * g_vs[i]
+                print("total:\n{}".format(param.grad.shape))
         self.optimizer.step()
+        try:
+            self.pol.step()
+        except AttributeError:
+            pass
 
     def init_lr_fun(self, lr_fun, builtin_lr_fun):
         """Resolves user-input and built-in conflict"""
@@ -81,7 +87,7 @@ class AbstractAlgo:
         warn("No learning rate provided for {}".format(self.name))
         return None
 
-    def set_gradient(self, state, new_state, reward):
+    def set_gradient(self, state, new_state, reward, action_idx):
         """Used when the update does not derive from a Loss function.
         All parameters' gradients will be set with the value returned
         by this function.
@@ -124,10 +130,11 @@ class TD0(AbstractAlgo):
             self.optimizer, lr_lambda=self.lr_fun)
 
     def policy(self):
-        action_idx = self.pol(None)
+        action_idx = self.pol(None, None)
         return action_idx
 
     def set_gradient(self, state, new_state, reward, action_idx=None):
+        self.model.zero_grad()
         v_curr = self.model(state)
         v_next = self.model(new_state)
         if not self.residual:
@@ -136,6 +143,8 @@ class TD0(AbstractAlgo):
 
         err = td ** 2
         err.backward()
+
+        alt = 2 * td
 
 
 class QLearning(AbstractAlgo):
@@ -167,21 +176,31 @@ class QLearning(AbstractAlgo):
         qval = self.model(state)
         qval = qval.squeeze()
         qval = qval.data.numpy()
-        action_idx = self.pol(qval)
+        # print("qval:\n{}".format(qval))
+        # print("state:\n{}".format(state.squeeze().data.numpy()))
+        # print("parameters:\n{}".format(list(self.model.parameters())))
+        # print('\n')
+
+        av_actions = self.env.available_actions()
+        action_idx = self.pol(qval, av_actions)
 
         return action_idx
 
     def set_gradient(self, state, new_state, reward, action_idx):
+        self.model.zero_grad()
         q_next = self.model(new_state)
-        q_best_a = self.target(q_next)
+        # print(q_next.squeeze().data.numpy())
+        q_next = self.target(q_next)
+        # print(q_next.squeeze().data[0])
         if not self.residual:
-            q_best_a.detach_()  # ignore gradient of bootstrap
+            q_next.detach_()  # ignore gradient of bootstrap
         q_curr = self.model(state)  # Q(s_t, a)
         q_curr = q_curr.squeeze()[action_idx]
-        td = q_curr - reward - self.env.gamma * q_best_a
+        td = q_curr - reward - self.env.gamma * q_next
 
         err = td ** 2
         err.backward()
+        print(q_curr.data[0], err.data[0])
 
 
 class DeepQLearning(AbstractAlgo):
@@ -214,17 +233,18 @@ class DeepQLearning(AbstractAlgo):
         qval = self.model(state)
         qval = qval.squeeze()
         qval = qval.data.numpy()
-        action_idx = self.pol(qval)
+        action_idx = self.pol(qval, None)
 
         return action_idx
 
     def set_gradient(self, state, new_state, reward, action_idx):
+        self.model.zero_grad()
         q_next = self.model(new_state)
-        q_best_a = self.target(q_next)
+        q_next = self.target(q_next)
         if self.residual:
-            q_best_a.detach_()  # ignore gradient of bootstrap
+            q_next.detach_()  # ignore gradient of bootstrap
         q_curr = self.model(state)[action_idx]  # Q(s_t, a)
-        td = q_curr - reward - self.env.gamma * q_best_a
+        td = q_curr - reward - self.env.gamma * q_next
 
         loss = self.huber_loss(td)
         loss.backward()

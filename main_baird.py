@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     env_func = lambda: env.Baird(epsilon=0.8, gamma=0.95)
     mod = model.LinearBaird
-    policy = lambda _: 0  # Baird : only one action possible
+    policy = policy.ConstantAction(0)  # Baird : only one action possible
 
     alpha0, T0 = 0.1, 500
     # alpha = lambda episode: alpha0 / (1 + episode / T0)
@@ -78,6 +78,9 @@ if __name__ == "__main__":
         TD0, TD0c, RTD0, RTD0c,
         QL, QLc, RQL, RQLc,
         DQN, DQNc, RDQN, RDQNc
+        ]
+    algorithms = [
+        QLc,
         ]
     n_algo = len(algorithms)
 

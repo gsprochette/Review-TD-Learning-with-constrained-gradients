@@ -166,22 +166,25 @@ class CartPole(Env):
         from gym library.'''
         self.nstate = -1  # n
         self.naction = 2  # a: +1 or -1
+        self.gamma = 0.999999
 
         self.gym_env = gym.make('CartPole-v0')
+        self.state_ = self.reset()
 
     def reset(self, _=None):
         return self.gym_env.reset()
 
-    def available_actions(self, state):
+    def available_actions(self):
         ''' Returns the indices of all available actions from state `state`.
         '''
         return np.array([0, 1])
 
     def step(self, action):
-        return self.gym_env.step(action)
-
-    def is_terminal(self, state, action):
-        pass
+        action = int(action)
+        next_state, reward, stop, _ = self.gym_env.step(action)
+        self.state_ = next_state
+        self.stop = stop
+        return (next_state, reward, stop)
 
 
 class MountainCar(Env):
