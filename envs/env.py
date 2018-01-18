@@ -40,7 +40,7 @@ class Env(ABC):
         if self.state is None:
             raise ValueError('The state should be initialized with env.step')
         trans_proba = self.transition[self.state, action, :]
-        assert np.sum(trans_proba) > 0
+        assert np.sum(trans_proba) > 0, self.state
         next_state = np.random.choice(self.nstate, p=trans_proba)
         reward = self.reward[self.state, action]
         stop = self.is_terminal(next_state, action)
@@ -69,6 +69,13 @@ class GridWorld(Env):
 
         self.init_reward()
         self.V_softmax = self.softmax_evaluation()
+
+
+    def reset(self, mu0=None):
+        assert mu0 is None or len(mu0) == self.nstate
+        self.stop = False
+        self.state = np.random.choice(self.nstate, p=mu0)
+        return np.array(self.lin2matrix(self.state))
 
     def matrix2lin(self, coord1, coord2):
         return coord1 * self.length + coord2

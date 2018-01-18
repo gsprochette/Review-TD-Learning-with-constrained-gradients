@@ -7,6 +7,9 @@ This repository is a reviews of the submission <a href="https://openreview.net/p
 To install the gym package:
 pip install --user gym
 
+In order to run the baseline, you must first install tensorflow (https://www.tensorflow.org/install/) and activate the corresponding environment: 
+The openai baseline library must also be installed (https://github.com/openai/baselines)
+
 ### Code Structure
 
 ##### envs/

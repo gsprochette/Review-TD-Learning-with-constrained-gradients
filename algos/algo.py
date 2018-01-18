@@ -147,7 +147,7 @@ class GTD2(Algo):
             alpha (double): learning rate.
         '''
         if beta is None:
-            beta = alpha
+            beta = 0.01 * alpha
         g = self.env.gamma
         model = self.mod
         delta = r + g * model.v(new_s, theta) - model.v(s, theta)

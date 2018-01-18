@@ -56,8 +56,8 @@ if __name__ == '__main__':
 
     # Parameters
     alpha0 = 0.1
-    n_iter = 20000
-    n_experiments = 50
+    n_iter = 1000
+    n_experiments = 10
 
     hist = np.zeros((n_experiments, len(algorithms), n_iter))
 

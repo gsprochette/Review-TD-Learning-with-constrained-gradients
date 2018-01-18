@@ -6,7 +6,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.nn import Parameter
 
-from utils import hook
+# from utils import hook
 
 
 class VModel(nn.Module):
@@ -39,6 +39,8 @@ class VModel(nn.Module):
         for i, param in enumerate(self.parameters()):  # recover gradients
             print("param: {}\n{}".format(param.grad.shape, param.grad))
             print("gradients[i]: {}\n{}".format(gradients[i].shape, gradients[i]))
+            print(param.grad)
+            print(gradients[i])
             param.grad = gradients[i]
 
         return direction
