@@ -57,15 +57,15 @@ class AbstractAlgo:
         Returns current loss and parameter update.
         """
 
+        if self.constr:
+            self.optimizer.zero_grad()
+            g_vs = self.model.g_v(new_state, action_idx)
+        self.optimizer.zero_grad()
         self.set_gradient(state, new_state, reward, action_idx)
 
         if self.constr:
-            g_vs = self.model.g_v(new_state, action_idx)
             for i, param in enumerate(self.model.parameters()):
-                print("curr:\n{}".format(param.grad.shape))
-                print("new:\n{}".format((torch.dot(param.grad, g_vs[i]) * g_vs[i]).shape))
                 param.grad -= torch.dot(param.grad, g_vs[i]) * g_vs[i]
-                print("total:\n{}".format(param.grad.shape))
         self.optimizer.step()
         try:
             self.pol.step()
@@ -187,20 +187,20 @@ class QLearning(AbstractAlgo):
         return action_idx
 
     def set_gradient(self, state, new_state, reward, action_idx):
-        self.model.zero_grad()
         q_next = self.model(new_state)
-        # print(q_next.squeeze().data.numpy())
+        print(q_next.squeeze().data.numpy())
         q_next = self.target(q_next)
-        # print(q_next.squeeze().data[0])
+        print(q_next.squeeze().data.numpy())
+        print()
         if not self.residual:
             q_next.detach_()  # ignore gradient of bootstrap
         q_curr = self.model(state)  # Q(s_t, a)
-        q_curr = q_curr.squeeze()[action_idx]
+        q_curr = q_curr.squeeze(0).squeeze(0)
+        q_curr = q_curr[action_idx]
         td = q_curr - reward - self.env.gamma * q_next
 
-        err = td ** 2
+        err = td * td
         err.backward()
-        print(q_curr.data[0], err.data[0])
 
 
 class DeepQLearning(AbstractAlgo):

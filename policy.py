@@ -34,14 +34,15 @@ class ConstantAction(object):
 def random_action(qval, av_actions):
     """Picks an available action uniformly at random."""
 
-    return np.random.choice(av_actions)
+    action_idx = np.random.choice(av_actions)
+    return int(action_idx)
 
 
 def best_action(qval, av_actions):
     """Picks action that maximizes the Q-Function."""
 
     best_a = av_actions[np.argmax(qval[av_actions])]
-    return best_a
+    return int(best_a)
 
 
 class EpsilonGreedyAction(object):
@@ -56,14 +57,14 @@ class EpsilonGreedyAction(object):
             return random_action(qval, av_actions)
 
 
-class EpsilonGreedyActionDecay(object):
+class EpsilonGreedyDecayAction(object):
     def __init__(self, initial_p):
-        super(EpsilonGreedyAction, self).__init__()
+        super(EpsilonGreedyDecayAction, self).__init__()
         self.eps = initial_p
         self.nsteps = 1
 
     def __call__(self, qval, av_actions):
-        if np.random.rand() > self.eps / (1 + float(self.nsteps) / 10):
+        if np.random.rand() > self.eps / (1 + float(self.nsteps) / 200):
             return best_action(qval, av_actions)
         else:
             return random_action(qval, av_actions)
@@ -82,12 +83,12 @@ def softmax_action(qval, av_actions):
 
     probs = softmax_(qval[av_actions])
     try:
-        action = np.random.choice(av_actions, p=probs)
+        action_idx = np.random.choice(av_actions, p=probs)
     except FloatingPointError:
         print("\tav_actions:\n{}".format(av_actions))
         print("\tprobs:\n{}".format(probs))
         raise
-    return action
+    return int(action_idx)
 
 
 ##############################################################

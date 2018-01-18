@@ -13,12 +13,18 @@ import models.model_torch as model
 import algos.algo_torch as algo
 import policy
 
-def episode(algo, max_iter=200):
+def param_norm(params):
+    norms = [torch.norm(param, p=2).data[0] ** 2 for param in params]
+    norm = np.sqrt(np.sum(norms))
+    return norm
+
+def episode(algo, max_iter=200, param_init=None):
     """Trains on one full episode"""
     algo.env.reset(algo.mu0)
     state = algo.env.state
     stop = False
     reward_acc = []
+    param_dist = []
     if hasattr(state, '__iter__'):  # list or tuple
         state = Variable(torch.Tensor(state))
         state = state.unsqueeze(0).unsqueeze(1)
@@ -46,9 +52,14 @@ def episode(algo, max_iter=200):
 
         # log
         reward_acc.append(reward)
+
+        if param_init is not None:
+            param_var = [param - param_init[i]
+                         for i, param in enumerate(algo.model.parameters())]
+            param_dist.append(param_norm(param_var))
     algo.nepisode += 1
     algo.rewards.append(reward_acc)
-    return reward_acc
+    return reward_acc, param_dist
 
 
 if __name__ == "__main__":
@@ -58,7 +69,7 @@ if __name__ == "__main__":
     # env_func = lambda: env.GridWorld(10, 10, (0, 0))
     env_func = lambda: env.CartPole()
     mod = lambda model0: deepcopy(model0)
-    pol = policy.EpsilonGreedyAction(0.3)
+    pol = policy.EpsilonGreedyDecayAction(1.0)
 
     alpha0, T0 = 1.e-3, 500
     # alpha = lambda episode: alpha0 / (1 + episode / T0)
@@ -104,13 +115,15 @@ if __name__ == "__main__":
         ]
     n_algo = len(algorithms)
 
-    nexperiment = 10
+    nexperiment = 1
     nepisode = 100
     hist = np.zeros((n_algo, nepisode))
+    param_variation = [0.]
     for iexp in range(nexperiment):
         print("experiment {}".format(iexp))
         # same initialization for all algorithms
         model0 = model.CartpoleNet()
+        param0 = list(model0.parameters())
         algos = [alg(model0) for alg in algorithms]
 
         for i, alg in enumerate(algos):
@@ -121,11 +134,12 @@ if __name__ == "__main__":
                 pass
             for iepisode in range(nepisode):
                 alg.scheduler.step()  # update learning rate
-                rewards = episode(alg)  # train for one episode
+                rewards, param_dist = episode(alg, param_init=param0)
+                # train for one episode
 
                 # rewards histogram
                 hist[i, iepisode] += float(np.sum(rewards)) / nexperiment
-                # number of steps to reach terminal state
+                param_variation = param_variation + param_dist
         print('\n')
 
     # plot results
@@ -142,4 +156,8 @@ if __name__ == "__main__":
         + ("" if nexperiment == 1 else \
         ", averaged on {} experiments".format(nexperiment)))
     plt.savefig('Cartpole')
+    plt.figure()
+    plt.plot(param_variation)
+    plt.xlabel("Number of parameter updates")
+    plt.ylabel("Distance to initial parameters")
     plt.show()

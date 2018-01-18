@@ -40,7 +40,7 @@ if __name__ == "__main__":
     mod = model.LinearBaird
     policy = policy.ConstantAction(0)  # Baird : only one action possible
 
-    alpha0, T0 = 0.1, 500
+    alpha0, T0 = 0.01, 500
     # alpha = lambda episode: alpha0 / (1 + episode / T0)
     alpha = lambda episode: alpha0
     args = lambda theta0: (env_func(), mod(theta0), policy)
@@ -80,12 +80,12 @@ if __name__ == "__main__":
         DQN, DQNc, RDQN, RDQNc
         ]
     algorithms = [
-        QLc,
+        QL, QLc, RQL, RQLc,
         ]
     n_algo = len(algorithms)
 
     nexperiment = 1
-    nepisode = 200
+    nepisode = 2000
     hist = np.zeros((n_algo, nepisode))
     for iexp in range(nexperiment):
         # same initialization for all algorithms
@@ -98,7 +98,7 @@ if __name__ == "__main__":
                 episode(algo)  # train for one episode
 
                 value = algo.model.all_v()
-                hist[i, iepisode] += torch.norm(value, p=2)
+                hist[i, iepisode] += torch.norm(value, p=2).data[0]
     hist /= nexperiment
 
     # plot results
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     for i in range(n_algo):
         plt.plot(hist[i, :], **algos[i].plot_kwargs())
     plt.xlim([0, nepisode])
-    plt.ylim([0, 1.3 * np.max(hist[:, 0])])
+    plt.ylim([0, 25])
     plt.xlabel("Iteration")
     plt.ylabel("l2 norm of theta")
     plt.legend()
@@ -114,4 +114,5 @@ if __name__ == "__main__":
         "Baird's counterexample" \
         + ("" if nexperiment == 1 else \
         ", averaged on {} experiments".format(nexperiment)))
+    plt.savefig('Baird')
     plt.show()
