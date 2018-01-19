@@ -86,7 +86,7 @@ def train(algo_func, model0s, alg_name,
 
                     states = Variable(torch.FloatTensor(states))
                     nstates = Variable(torch.FloatTensor(nstates))
-                    
+
                     # alg_nonbatch = deepcopy(alg)
                     # param0 = [param.data.numpy() for param in alg_nonbatch.model.parameters()]
                     # alg_nonbatch.update(states[0], nstates[0], 1.0, int(actions[0]))
@@ -116,11 +116,11 @@ if __name__ == "__main__":
     env_func = lambda: env.GridWorld(10, 10, (0, 0))
     # env_func = lambda: env.CartPole()
     mod = lambda model0: deepcopy(model0)
-    # pol = policy.EpsilonGreedyDecayAction(10000, 1.0, 0.02)
-    pol = policy.EpsilonSoftmaxAction(30000, 1.0, 0.01)
+    pol = policy.EpsilonGreedyDecayAction(10000, 1.0, 0.02)
+    #pol = policy.EpsilonSoftmaxAction(30000, 1.0, 0.01)
 
-    alpha0, T0 = 3e-3, 200
-    # alpha = lambda episode: alpha0 / (1 + episode / T0)
+    alpha0, T0 = 1e-3, 2000
+#    alpha = lambda episode: alpha0 / (1 + episode / T0)
     alpha = lambda episode: alpha0
     args = lambda model0: (env_func(), mod(model0), pol)
     kwargs = lambda constr, res: dict(
@@ -168,7 +168,7 @@ if __name__ == "__main__":
     # model0s = [model.CartpoleNet() for _ in range(nexperiment)]
 
     for algo_func in algorithms:
-        hist = train(algo_func, model0s, "RDQN", batch_size=64)
+        hist = train(algo_func, model0s, "RDQN", batch_size=32)
 
     print("seed: {}".format(seed))
 
