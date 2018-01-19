@@ -32,13 +32,6 @@ class VModel(nn.Module):
             if is_zero[i]:
                 direction[i] = torch.zeros_like(vect)
 
-        for i, param in enumerate(self.parameters()):  # recover gradients
-            print("param: {}\n{}".format(param.grad.shape, param.grad))
-            print("gradients[i]: {}\n{}".format(gradients[i].shape, gradients[i]))
-            print(param.grad)
-            print(gradients[i])
-            param.grad = gradients[i]
-
         return direction
 
 

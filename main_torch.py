@@ -111,12 +111,12 @@ if __name__ == "__main__":
         DQN, DQNc, RDQN, RDQNc
         ]
     algorithms = [
-        QL,
+        DQN,
         ]
     n_algo = len(algorithms)
 
     nexperiment = 1
-    nepisode = 15000
+    nepisode = 2000
     hist = np.zeros((n_algo, nepisode))
     param_variation = [0.]
     for iexp in range(nexperiment):

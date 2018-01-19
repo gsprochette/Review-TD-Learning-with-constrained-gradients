@@ -64,7 +64,7 @@ class EpsilonGreedyDecayAction(object):
         self.nsteps = 1
 
     def __call__(self, qval, av_actions):
-        if np.random.rand() > self.eps / (1 + float(self.nsteps) / 200000):
+        if np.random.rand() > self.eps / (1 + float(self.nsteps) / 1000):
             return best_action(qval, av_actions)
         else:
             return random_action(qval, av_actions)
