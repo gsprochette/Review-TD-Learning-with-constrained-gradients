@@ -4,6 +4,7 @@ should inherit from `Algo`.
 """
 from abc import ABC, abstractmethod
 from warnings import warn
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -44,8 +45,8 @@ class AbstractAlgo:
         # initialize training informations
         self.nepisode = 0
         self.rewards = []
-        self.optimizer = optim.SGD(self.model.parameters(), lr=1.)
-        # self.optimizer = optim.Adam(self.model.parameters(), lr=1.)
+        #self.optimizer = optim.SGD(self.model.parameters(), lr=1)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=1.)
         self.scheduler = None
 
         self.name = "Abstract algorithm"
@@ -188,10 +189,11 @@ class QLearning(AbstractAlgo):
 
     def set_gradient(self, state, new_state, reward, action_idx):
         q_next = self.model(new_state)
-        print(q_next.squeeze().data.numpy())
+        #print(q_next.squeeze().data.numpy())
         q_next = self.target(q_next)
-        print(q_next.squeeze().data.numpy())
-        print()
+        #print(q_next.squeeze().data.numpy())
+        assert np.isfinite(q_next.squeeze().data.numpy())
+        #print()
         if not self.residual:
             q_next.detach_()  # ignore gradient of bootstrap
         q_curr = self.model(state)  # Q(s_t, a)

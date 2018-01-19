@@ -11,14 +11,14 @@ def softmax_(x):
         print("x:\n{}".format(x))
         print("max x:\n{}".format(np.max(x)))
         raise
-    
+
     res = e_x / e_x.sum()
     if np.sum(np.isnan(res)):
         print("x:\n{}".format(x))
         print("max x:\n{}".format(np.max(x)))
         print("e_x:\n{}".format(e_x))
         raise ValueError
-    return res 
+    return res
 
 # Policies for Q-Learning take as argument the Q-function
 
@@ -64,7 +64,7 @@ class EpsilonGreedyDecayAction(object):
         self.nsteps = 1
 
     def __call__(self, qval, av_actions):
-        if np.random.rand() > self.eps / (1 + float(self.nsteps) / 200):
+        if np.random.rand() > self.eps / (1 + float(self.nsteps) / 200000):
             return best_action(qval, av_actions)
         else:
             return random_action(qval, av_actions)
@@ -100,7 +100,7 @@ def best(qval):
     return torch.max(qval)
 
 def softmax(qval):
-    """Returns the expected value of the Q-Function under the 
+    """Returns the expected value of the Q-Function under the
     Softmax policy.
     """
     probs = F.softmax(qval.squeeze(), 0)

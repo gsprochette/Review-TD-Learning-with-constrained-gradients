@@ -69,9 +69,9 @@ if __name__ == "__main__":
     # env_func = lambda: env.GridWorld(10, 10, (0, 0))
     env_func = lambda: env.CartPole()
     mod = lambda model0: deepcopy(model0)
-    pol = policy.EpsilonGreedyDecayAction(1.0)
+    pol = policy.EpsilonGreedyDecayAction(0.05)
 
-    alpha0, T0 = 1.e-3, 500
+    alpha0 = 1e-3
     # alpha = lambda episode: alpha0 / (1 + episode / T0)
     alpha = lambda episode: alpha0
     args = lambda model0: (env_func(), mod(model0), pol)
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     n_algo = len(algorithms)
 
     nexperiment = 1
-    nepisode = 100
+    nepisode = 15000
     hist = np.zeros((n_algo, nepisode))
     param_variation = [0.]
     for iexp in range(nexperiment):

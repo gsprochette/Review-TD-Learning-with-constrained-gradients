@@ -18,7 +18,7 @@ def model(inpt, num_actions, scope, reuse=False):
     """This model takes as input an observation and returns values of all actions."""
     with tf.variable_scope(scope, reuse=reuse):
         out = inpt
-        out = layers.fully_connected(out, num_outputs=64, activation_fn=tf.nn.tanh)
+        out = layers.fully_connected(out, num_outputs=64, activation_fn=tf.nn.relu)
 #        out = layers.fully_connected(out, num_outputs=5, activation_fn=tf.nn.tanh)
 #        out = layers.fully_connected(out, num_outputs=32, activation_fn=tf.nn.tanh)
         out = layers.fully_connected(out, num_outputs=num_actions, activation_fn=None)
@@ -26,9 +26,9 @@ def model(inpt, num_actions, scope, reuse=False):
 
 
 if __name__ == '__main__':
-    learning_rate = 1e-4
+    learning_rate = 1e-3
     lay = [64]
-    n_experiments = 10
+    n_experiments = 1
     size_expe = 1000
     all_rewards = np.zeros((n_experiments, size_expe))
     with U.make_session(8):
@@ -39,8 +39,8 @@ if __name__ == '__main__':
             make_obs_ph=lambda name: U.BatchInput(env.observation_space.shape, name=name),
             q_func=model,
             num_actions=env.action_space.n,
-            #optimizer=tf.train.AdamOptimizer(learning_rate=5e-4),
-            optimizer = tf.train.RMSPropOptimizer(learning_rate)
+            optimizer=tf.train.AdamOptimizer(learning_rate=5e-4),
+            #optimizer = tf.train.RMSPropOptimizer(learning_rate)
         )
         # Create the replay buffer
         replay_buffer = ReplayBuffer(50000)
