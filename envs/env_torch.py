@@ -54,7 +54,7 @@ class Env(ABC):
         stop = self.is_terminal(next_state, action)
         self.state_ = next_state
         self.stop = stop
-        return next_state, reward, stop
+        return self.state, reward, stop
 
     def is_terminal(self, state, action):
         pass

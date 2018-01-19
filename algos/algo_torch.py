@@ -238,6 +238,24 @@ class QLearning(AbstractAlgo):
         if np.isnan(err.data[0]):
             raise ValueError("Error is NaN")
 
+    def batch_gradient(self, states, new_states, rewards, actions_idx=None):
+        q_next = self.model(new_states)
+        q_next = self.target(q_next, dim=1)
+
+        if not self.residual:
+            q_next = Variable(q_next.data)
+
+        q_curr = self.model(states)
+        idx = Variable(torch.Tensor(actions_idx).long())
+        q_curr = q_curr.gather(1, idx.view(-1, 1))
+        q_curr = q_curr.squeeze(1)
+
+        rew = Variable(torch.Tensor([rewards])).squeeze(0)
+        td = q_curr - rew - self.env.gamma * q_next
+        
+        err = td * td
+        err.backward()
+
 
 class DeepQLearning(AbstractAlgo):
     """Q-Learning algorithm"""
@@ -302,9 +320,9 @@ class DeepQLearning(AbstractAlgo):
         q_curr = q_curr.squeeze(1)
 
         rew = Variable(torch.Tensor([rewards])).squeeze(0)
-        expected_qcurr = rew + self.env.gamma * q_next
+        td = q_curr - rew - self.env.gamma * q_next
         
-        loss = F.smooth_l1_loss(q_curr, expected_qcurr)
+        loss = F.smooth_l1_loss(td, torch.zeros_like(td))
         loss.backward()
 
     @staticmethod

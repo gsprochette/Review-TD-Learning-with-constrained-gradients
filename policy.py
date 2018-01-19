@@ -102,7 +102,7 @@ class EpsilonGreedyDecayAction(object):
         self.nsteps += 1
 
     def reset(self):
-        self.nsteps = 1
+        self.nsteps = 0
 
 
 def softmax_action(qval, av_actions):
@@ -118,6 +118,29 @@ def softmax_action(qval, av_actions):
         print("\tprobs:\n{}".format(probs))
         raise
     return int(action_idx)
+
+
+class EpsilonSoftmaxAction(object):
+    def __init__(self, schedule_timesteps, initial_p, final_p):
+        super(EpsilonSoftmaxAction, self).__init__()
+        self.schedule = LinearSchedule(
+            schedule_timesteps, initial_p=initial_p, final_p=final_p)
+        self.nsteps = 0
+
+    def __call__(self, qval, av_actions):
+        if np.random.rand() > self.epsilon():
+            return softmax_action(qval, av_actions)
+        else:
+            return random_action(qval, av_actions)
+
+    def epsilon(self):
+        return self.schedule.value(self.nsteps)
+
+    def step(self):
+        self.nsteps += 1
+
+    def reset(self):
+        self.nsteps = 0
 
 
 ##############################################################
