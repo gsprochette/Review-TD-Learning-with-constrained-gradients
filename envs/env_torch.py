@@ -207,7 +207,7 @@ class MountainCar(Env):
         ''' 0: push left; 1: no push ; 2: push right.'''
         return np.array([0, 1, 2])
 
-    def step(self, aciton):
+    def step(self, action):
         next_s, reward, self.terminated, info = self.gym_env.step(action)
         self.state_ = next_s
         self.stop = self.terminated

@@ -71,9 +71,9 @@ if __name__ == "__main__":
     mod = lambda model0: deepcopy(model0)
     pol = policy.EpsilonGreedyDecayAction(0.05)
 
-    alpha0 = 1e-3
-    # alpha = lambda episode: alpha0 / (1 + episode / T0)
-    alpha = lambda episode: alpha0
+    alpha0, T0 = 1e-3, 80
+    alpha = lambda episode: alpha0 / (1 + episode / T0)
+    # alpha = lambda episode: alpha0
     args = lambda model0: (env_func(), mod(model0), pol)
     kwargs = lambda constr, res: dict(
         lr_fun=alpha, target="best", constraint=constr, residual=res)
@@ -111,12 +111,12 @@ if __name__ == "__main__":
         DQN, DQNc, RDQN, RDQNc
         ]
     algorithms = [
-        DQN,
+        DQNc,
         ]
     n_algo = len(algorithms)
 
     nexperiment = 1
-    nepisode = 2000
+    nepisode = 4000
     hist = np.zeros((n_algo, nepisode))
     param_variation = [0.]
     for iexp in range(nexperiment):
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     for i in range(n_algo):
         plt.plot(hist[i, :], **algos[i].plot_kwargs())
     plt.xlim([0, nepisode])
-    plt.ylim([0, 20])
+    plt.ylim([0, 220])
     plt.xlabel("Iteration")
     plt.ylabel("Cumulated Reward")
     plt.legend()
