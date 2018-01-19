@@ -166,7 +166,7 @@ class CartPole(Env):
         from gym library.'''
         self.nstate = -1  # n
         self.naction = 2  # a: +1 or -1
-        self.gamma = 0.9
+        self.gamma = 1.0
 
         self.gym_env = gym.make('CartPole-v0')
         self.state_ = self.reset()
@@ -181,11 +181,11 @@ class CartPole(Env):
 
     def step(self, action):
         action = int(action)
-        next_state, reward, stop, _ = self.gym_env.step(action)
-        print("state: {}".format(next_state))
+        next_state, rew, stop, _ = self.gym_env.step(action)
+        # print("state: {}".format(next_state))
         self.state_ = next_state
         self.stop = stop
-        return (next_state, reward, stop)
+        return (next_state, rew, stop)
 
 
 class MountainCar(Env):
@@ -210,6 +210,7 @@ class MountainCar(Env):
     def step(self, aciton):
         next_s, reward, self.terminated, info = self.gym_env.step(action)
         self.state_ = next_s
+        self.stop = self.terminated
         return next_s, reward, self.terminated
 
     def is_terminal(self, state, action):

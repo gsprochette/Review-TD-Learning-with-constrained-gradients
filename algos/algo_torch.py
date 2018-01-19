@@ -4,6 +4,7 @@ should inherit from `Algo`.
 """
 from abc import ABC, abstractmethod
 from warnings import warn
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -44,7 +45,7 @@ class AbstractAlgo:
         # initialize training informations
         self.nepisode = 0
         self.rewards = []
-        self.optimizer = optim.SGD(self.model.parameters(), lr=1.)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=1.)
         # self.optimizer = optim.Adam(self.model.parameters(), lr=1.)
         self.scheduler = None
 
@@ -174,9 +175,8 @@ class QLearning(AbstractAlgo):
         else:
             state = Variable(torch.Tensor([state]))
         qval = self.model(state)
-        qval = qval.squeeze()
-        qval = qval.data.numpy()
-        # print("qval:\n{}".format(qval))
+        qval = qval.squeeze().data.numpy()
+        # print(qval)
         # print("state:\n{}".format(state.squeeze().data.numpy()))
         # print("parameters:\n{}".format(list(self.model.parameters())))
         # print('\n')
@@ -188,19 +188,28 @@ class QLearning(AbstractAlgo):
 
     def set_gradient(self, state, new_state, reward, action_idx):
         q_next = self.model(new_state)
-        print(q_next.squeeze().data.numpy())
         q_next = self.target(q_next)
-        print(q_next.squeeze().data.numpy())
-        print()
         if not self.residual:
-            q_next.detach_()  # ignore gradient of bootstrap
+            q_next = Variable(q_next.data)  # ignore gradient of bootstrap
         q_curr = self.model(state)  # Q(s_t, a)
         q_curr = q_curr.squeeze(0).squeeze(0)
         q_curr = q_curr[action_idx]
-        td = q_curr - reward - self.env.gamma * q_next
+        rew = Variable(torch.Tensor([reward]))
+        td = q_curr - rew - self.env.gamma * q_next
 
         err = td * td
+        if err.data[0] > 1e6:
+            print("state:\n{}".format(state))
+            print("new_state:\n{}".format(new_state))
+            print("reward:\n{}".format(reward))
+            print("action_idx:\n{}".format(action_idx))
+            print("\n\n\n")
         err.backward()
+
+        # print([param.grad.data.numpy() for param in self.model.parameters()])
+        # print("\n\n\n")
+        if np.isnan(err.data[0]):
+            raise ValueError("Error is NaN")
 
 
 class DeepQLearning(AbstractAlgo):
@@ -231,20 +240,23 @@ class DeepQLearning(AbstractAlgo):
         else:
             state = Variable(torch.Tensor([state]))
         qval = self.model(state)
-        qval = qval.squeeze()
-        qval = qval.data.numpy()
-        action_idx = self.pol(qval, None)
+        qval = qval.squeeze().data.numpy()
+        
+        av_actions = self.env.available_actions()
+        action_idx = self.pol(qval, av_actions)
 
         return action_idx
 
     def set_gradient(self, state, new_state, reward, action_idx):
-        self.model.zero_grad()
         q_next = self.model(new_state)
         q_next = self.target(q_next)
         if self.residual:
-            q_next.detach_()  # ignore gradient of bootstrap
-        q_curr = self.model(state)[action_idx]  # Q(s_t, a)
-        td = q_curr - reward - self.env.gamma * q_next
+            q_next = Variable(q_next.data)  # ignore gradient of bootstrap
+        q_curr = self.model(state)
+        q_curr = q_curr.squeeze(0).squeeze(0)
+        q_curr = q_curr[action_idx]  # Q(s_t, a)
+        rew = Variable(torch.Tensor([reward]))
+        td = q_curr - rew - self.env.gamma * q_next
 
         loss = self.huber_loss(td)
         loss.backward()
