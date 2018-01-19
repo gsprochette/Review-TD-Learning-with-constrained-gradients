@@ -5,6 +5,7 @@ import torch.nn.init as I
 import torch.optim as optim
 from torch.autograd import Variable
 from torch.nn import Parameter
+import numpy as np
 
 
 class VModel(nn.Module):
@@ -155,8 +156,14 @@ class GridNet(QModel):
 class CartpoleNet(QModel):
     def __init__(self):
         super(CartpoleNet, self).__init__()
-        self.fc1 = nn.Linear(4, 64)  # input is (x, y)
-        # self.fc2 = nn.Linear(5, 32)
+        params1 = np.loadtxt('baselines/var1.txt')
+        bias1 = np.loadtxt('baselines/var2.txt')
+        params2 = np.loadtxt('baselines/var3.txt')
+        bias2 = np.loadtxt('baselines/var4.txt')
+        print(bias2)
+        #self.fc1 = nn.Linear(4, 5)  # input is (x, y)
+        #self.fc2 = nn.Linear(5, 32)
+        self.fc1 = nn.Linear(4, 64)
         self.fc3 = nn.Linear(64, 2)  # output is (Q(0), Q(1))
 
     def forward(self, x):
