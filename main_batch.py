@@ -1,5 +1,6 @@
 import numpy as np
 from copy import deepcopy
+import itertools
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,6 +13,7 @@ import envs.env_torch as env
 import models.model_torch as model
 import algos.algo_torch as algo
 import policy
+from replay_buffer import ReplayBuffer
 
 def param_norm(params):
     norms = [torch.norm(param, p=2).data[0] ** 2 for param in params]
@@ -62,6 +64,53 @@ def episode(algo, max_iter=200, param_init=None):
     return reward_acc, param_dist
 
 
+def train(algo_func, model0s,
+          max_iter=200, batch_size=32, buffer_size=50000):
+    buffer = ReplayBuffer(buffer_size)
+
+    # create dataset
+    for model0 in model0s:  # iterates on all experiments
+        alg = algo_func(model0)
+
+        episode_rewards = [0.0]
+        alg.env.reset(alg.mu0)
+        state = alg.env.state
+        for t in itertools.count():
+            action_idx = alg.policy()
+            new_state, reward, done = alg.env.step(action_idx)
+
+            # store transition
+            buffer.add(state, action_idx, reward, new_state, float(done))
+            state = new_state
+
+            episode_rewards[-1] += reward
+            
+            if done and t > 100:
+                print(episode_rewards[-1], np.mean(episode_rewards[-101:-1]),
+                      alg.pol.epsilon())
+            
+            if done:
+                alg.env.reset(alg.mu0)
+                state = alg.env.state
+                episode_rewards.append(0.0)
+
+            is_solved = t > 100 and np.mean(episode_rewards[-101:-1]) >= 200
+            if is_solved:
+                pass
+                # Show off the result
+                #env.render()
+                #continue
+            else:
+                # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
+                if t > 100: # 0:
+                    states, actions, rewards, nstates, _ = buffer.sample(32)
+                    
+                    states = Variable(torch.FloatTensor(states))
+                    nstates = Variable(torch.FloatTensor(nstates))
+
+                    alg.batch_update(states, nstates, np.ones_like(rewards), actions)
+
+
 if __name__ == "__main__":
     # seed randomness ?
     np.seterr(invalid='raise')  # sauf underflow error...
@@ -71,12 +120,12 @@ if __name__ == "__main__":
     mod = lambda model0: deepcopy(model0)
     pol = policy.EpsilonGreedyDecayAction(10000, 1.0, 0.02)
 
-    alpha0, T0 = 1e-3, 80
+    alpha0, T0 = 1e-3, 200
     alpha = lambda episode: alpha0 / (1 + episode / T0)
     # alpha = lambda episode: alpha0
     args = lambda model0: (env_func(), mod(model0), pol)
     kwargs = lambda constr, res: dict(
-        lr_fun=alpha, target="best", constraint=constr, residual=res)
+        lr_fun=alpha, target="softmax", constraint=constr, residual=res)
 
     TD0 = lambda model0: algo.TD0(
         *args(model0), **kwargs(False, False))
@@ -119,28 +168,10 @@ if __name__ == "__main__":
     nepisode = 4000
     hist = np.zeros((n_algo, nepisode))
     param_variation = [0.]
-    for iexp in range(nexperiment):
-        print("experiment {}".format(iexp))
-        # same initialization for all algorithms
-        model0 = model.CartpoleNet()
-        param0 = list(model0.parameters())
-        algos = [alg(model0) for alg in algorithms]
 
-        for i, alg in enumerate(algos):
-            print(alg.name)
-            try:
-                pol.reset()
-            except AttributeError:
-                pass
-            for iepisode in range(nepisode):
-                alg.scheduler.step()  # update learning rate
-                rewards, param_dist = episode(alg, param_init=param0)
-                # train for one episode
-
-                # rewards histogram
-                hist[i, iepisode] += float(np.sum(rewards)) / nexperiment
-                param_variation = param_variation + param_dist
-        print('\n')
+    model0s = [model.CartpoleNet() for _ in range(nexperiment)]
+    for algo_func in algorithms:
+        train(algo_func, model0s)
 
     # plot results
     plt.clf()
@@ -152,7 +183,7 @@ if __name__ == "__main__":
     plt.ylabel("Cumulated Reward")
     plt.legend()
     plt.title(
-        "Learning on Cartpole" \
+        "Batch Learning on Cartpole" \
         + ("" if nexperiment == 1 else \
         ", averaged on {} experiments".format(nexperiment)))
     plt.savefig('Cartpole')
@@ -160,4 +191,4 @@ if __name__ == "__main__":
     plt.plot(param_variation)
     plt.xlabel("Number of parameter updates")
     plt.ylabel("Distance to initial parameters")
-plt.show()
+    plt.show()

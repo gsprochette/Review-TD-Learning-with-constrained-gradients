@@ -20,6 +20,31 @@ def softmax_(x):
         raise ValueError
     return res
 
+
+class LinearSchedule(object):
+    def __init__(self, schedule_timesteps, final_p, initial_p=1.0):
+        """Linear interpolation between initial_p and final_p over
+        schedule_timesteps. After this many timesteps pass final_p is
+        returned.
+        Parameters
+        ----------
+        schedule_timesteps: int
+            Number of timesteps for which to linearly anneal initial_p
+            to final_p
+        initial_p: float
+            initial output value
+        final_p: float
+            final output value
+        """
+        self.schedule_timesteps = schedule_timesteps
+        self.final_p = final_p
+        self.initial_p = initial_p
+
+    def value(self, t):
+        """See Schedule.value"""
+        fraction = min(float(t) / self.schedule_timesteps, 1.0)
+        return self.initial_p + fraction * (self.final_p - self.initial_p)
+
 # Policies for Q-Learning take as argument the Q-function
 
 class ConstantAction(object):
@@ -58,16 +83,20 @@ class EpsilonGreedyAction(object):
 
 
 class EpsilonGreedyDecayAction(object):
-    def __init__(self, initial_p):
+    def __init__(self, schedule_timesteps, initial_p, final_p):
         super(EpsilonGreedyDecayAction, self).__init__()
-        self.eps = initial_p
-        self.nsteps = 1
+        self.schedule = LinearSchedule(
+            schedule_timesteps, initial_p=initial_p, final_p=final_p)
+        self.nsteps = 0
 
     def __call__(self, qval, av_actions):
-        if np.random.rand() > self.eps / (1 + float(self.nsteps) / 3000):
+        if np.random.rand() > self.epsilon():
             return best_action(qval, av_actions)
         else:
             return random_action(qval, av_actions)
+
+    def epsilon(self):
+        return self.schedule.value(self.nsteps)
 
     def step(self):
         self.nsteps += 1
@@ -95,14 +124,15 @@ def softmax_action(qval, av_actions):
 ################ Target Values for Q-Learning ################
 ##############################################################
 
-def best(qval):
+def best(qval, dim=0):
     """Returns the best Q value in qval"""
-    return torch.max(qval)
+    expected_qval, _ = torch.max(qval, dim)
+    return expected_qval
 
-def softmax(qval):
+def softmax(qval, dim=0):
     """Returns the expected value of the Q-Function under the
     Softmax policy.
     """
-    probs = F.softmax(qval.squeeze(), 0)
-    expected_qval = torch.sum(probs * qval)
+    probs = F.softmax(qval.squeeze(), dim)
+    expected_qval = torch.sum(probs * qval, dim)
     return expected_qval

@@ -34,6 +34,22 @@ class VModel(nn.Module):
 
         return direction
 
+    def batch_g_v(self, states, actions_idx=None):
+        """Batch version of self.g_v."""
+
+        vals = self.forward(states)
+        vals = torch.sum(vals)
+        vals.backward()
+
+        is_zero = [torch.norm(param.grad, p=2).data[0] == 0 for param in self.parameters()]
+        direction = [param.grad / torch.norm(param.grad, p=2)
+                     for param in self.parameters()]
+        for i, vect in enumerate(direction):
+            if is_zero[i]:
+                direction[i] = torch.zeros_like(vect)
+
+        return direction
+
 
 class QModel(nn.Module):
     """Specifies the way the Q function is estimated, and the
@@ -50,10 +66,8 @@ class QModel(nn.Module):
         self.parameters().
         """
 
-        gradients = [param.grad for param in self.parameters()]  # remember gradients
-
         val = self.forward(state)
-        val = val.squeeze()[action_idx]
+        val = val.squeeze(0).squeeze(0)[action_idx]
         val.backward()
 
         is_zero = [torch.norm(param.grad, p=2).data[0] == 0 for param in self.parameters()]
@@ -63,10 +77,26 @@ class QModel(nn.Module):
             if is_zero[i]:
                 direction[i] = torch.zeros_like(vect)
 
-        for i, param in enumerate(self.parameters()):  # recover gradients
-            param.grad = gradients[i]
+        return direction
+
+    def batch_g_v(self, states, actions_idx=None):
+        """Batch version of self.g_v."""
+
+        vals = self.forward(states)
+        idx = Variable(torch.Tensor(actions_idx).long())
+        vals = vals.gather(1, idx.view(-1, 1))
+        vals = torch.sum(vals, 0)
+        vals.backward()
+
+        is_zero = [torch.norm(param.grad, p=2).data[0] == 0 for param in self.parameters()]
+        direction = [param.grad / torch.norm(param.grad, p=2)
+                     for param in self.parameters()]
+        for i, vect in enumerate(direction):
+            if is_zero[i]:
+                direction[i] = torch.zeros_like(vect)
 
         return direction
+
 
 
 class LinearBaird(VModel):

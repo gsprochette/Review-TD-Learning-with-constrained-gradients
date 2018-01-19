@@ -61,6 +61,7 @@ class AbstractAlgo:
         if self.constr:
             self.optimizer.zero_grad()
             g_vs = self.model.g_v(new_state, action_idx)
+        
         self.optimizer.zero_grad()
         self.set_gradient(state, new_state, reward, action_idx)
 
@@ -72,6 +73,26 @@ class AbstractAlgo:
             self.pol.step()
         except AttributeError:
             pass
+
+    def batch_update(self, states, new_states, rewards, actions_idx):
+        """Batch version of self.update."""
+
+        if self.constr:
+            self.optimizer.zero_grad()
+            g_vs = self.model.batch_g_v(new_states, actions_idx)
+
+        self.optimizer.zero_grad()
+        self.batch_gradient(states, new_states, rewards, actions_idx)
+
+        if self.constr:
+            for i, param in enumerate(self.model.parameters()):
+                param.grad -= torch.dot(param.grad, g_vs[i]) * g_vs[i]
+        self.optimizer.step()
+        try:
+            self.pol.step()
+        except AttributeError:
+            pass
+
 
     def init_lr_fun(self, lr_fun, builtin_lr_fun):
         """Resolves user-input and built-in conflict"""
@@ -95,8 +116,10 @@ class AbstractAlgo:
         Output should be a list of Variables, with shapes matching
         self.model.parameters()
         """
-        # for param, grad in zip(self.model.parameters(), grads):
-        #     param.grad = grad
+        pass
+
+    def batch_gradient(self, states, new_states, rewards, actions_idx=None):
+        """Batch version of self.set_gradient."""
         pass
 
     def policy(self):
@@ -253,8 +276,9 @@ class DeepQLearning(AbstractAlgo):
 
     def set_gradient(self, state, new_state, reward, action_idx):
         q_next = self.model(new_state)
+        q_next = q_next.squeeze(0).squeeze(0)
         q_next = self.target(q_next)
-        if self.residual:
+        if not self.residual:
             q_next = Variable(q_next.data)  # ignore gradient of bootstrap
         q_curr = self.model(state)
         q_curr = q_curr.squeeze(0).squeeze(0)
@@ -263,6 +287,24 @@ class DeepQLearning(AbstractAlgo):
         td = q_curr - rew - self.env.gamma * q_next
 
         loss = self.huber_loss(td)
+        loss.backward()
+
+    def batch_gradient(self, states, new_states, rewards, actions_idx=None):
+        q_next = self.model(new_states)
+        q_next = self.target(q_next, dim=1)
+
+        if not self.residual:
+            q_next = Variable(q_next.data)
+
+        q_curr = self.model(states)
+        idx = Variable(torch.Tensor(actions_idx).long())
+        q_curr = q_curr.gather(1, idx.view(-1, 1))
+        q_curr = q_curr.squeeze(1)
+
+        rew = Variable(torch.Tensor([rewards])).squeeze(0)
+        expected_qcurr = rew + self.env.gamma * q_next
+        
+        loss = F.smooth_l1_loss(q_curr, expected_qcurr)
         loss.backward()
 
     @staticmethod
