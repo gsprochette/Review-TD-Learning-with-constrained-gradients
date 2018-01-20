@@ -10,6 +10,8 @@ To install the gym package:
 In order to run the baseline, you must first install tensorflow (https://www.tensorflow.org/install/) and activate the corresponding environment: 
 The openai baseline library must also be installed (https://github.com/openai/baselines)
 
+To run algorithms containing neural networks, install the version 0.4.0. It your package manager has not upgraded to this version yet, it may be necessary to compile it from source (see https://github.com/pytorch/pytorch).
+
 Projection on the Baird environment can be tested using:
 `python main_baird.py`
 and the GridWorld environment can be tested using:
